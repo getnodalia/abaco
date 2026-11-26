@@ -237,6 +237,7 @@ const SCRIPT_STACK: usize = 256 * 1024 * 1024;
 fn script_limits() -> Limits {
     Limits {
         max_stack: SCRIPT_STACK / 4 * 3,
+        files: true,
         ..Limits::default()
     }
 }

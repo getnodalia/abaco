@@ -67,7 +67,7 @@ error: cannot add m and s (length and time)
   stopped. Diagrams open and save as JSON, the same files `abaco sim` reads.
 
 What does not exist yet (see [`ROADMAP.md`](ROADMAP.md)): undo and redo in the app, exporting figures, symbolic
-computation, undo in the block editor and file I/O from scripts (`readmatrix`, `save`, `load`).
+computation, undo in the block editor and low-level file handles in scripts (`fopen`, `fgetl`, MAT files).
 Nothing here is validated for safety-critical use.
 
 ## Install

@@ -12,6 +12,7 @@ use std::sync::OnceLock;
 mod control;
 mod create;
 mod elementwise;
+mod files;
 mod interpolate;
 mod linear;
 mod numeric;
@@ -39,6 +40,7 @@ fn registry() -> &'static HashMap<&'static str, Bf> {
             control::TABLE,
             create::TABLE,
             elementwise::TABLE,
+            files::TABLE,
             interpolate::TABLE,
             linear::TABLE,
             numeric::TABLE,

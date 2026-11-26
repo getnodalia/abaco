@@ -500,23 +500,43 @@ fn f_structfun(i: &mut Interp, a: &[Value], n: usize) -> Out {
 
 /// Deep equality that ignores the numeric class, like `isequal`.
 pub(crate) fn values_equal(a: &Value, b: &Value) -> bool {
+    equal_with(a, b, false)
+}
+
+/// Equality of values; with `nan_equal`, NaN equals NaN (`isequaln`).
+fn equal_with(a: &Value, b: &Value, nan_equal: bool) -> bool {
+    let same = |x: f64, y: f64| x == y || (nan_equal && x.is_nan() && y.is_nan());
     match (a, b) {
         (Value::Cell(x), Value::Cell(y)) => {
-            x.r == y.r && x.c == y.c && x.d.iter().zip(&y.d).all(|(p, q)| values_equal(p, q))
+            x.r == y.r
+                && x.c == y.c
+                && x.d
+                    .iter()
+                    .zip(&y.d)
+                    .all(|(p, q)| equal_with(p, q, nan_equal))
         }
         (Value::Struct(x), Value::Struct(y)) => {
             x.fields.len() == y.fields.len()
                 && x.fields
                     .iter()
-                    .all(|(n, v)| y.get(n).is_some_and(|w| values_equal(v, w)))
+                    .all(|(n, v)| y.get(n).is_some_and(|w| equal_with(v, w, nan_equal)))
         }
         (Value::Fn(x), Value::Fn(y)) => x == y,
         (Value::Cplx(_), _) | (_, Value::Cplx(_)) => match (a.to_complex(), b.to_complex()) {
-            (Ok(x), Ok(y)) => x.r == y.r && x.c == y.c && x.d == y.d,
+            (Ok(x), Ok(y)) => {
+                x.r == y.r
+                    && x.c == y.c
+                    && x.d
+                        .iter()
+                        .zip(&y.d)
+                        .all(|(p, q)| same(p.re, q.re) && same(p.im, q.im))
+            }
             _ => false,
         },
         _ if a.is_numeric_like() && b.is_numeric_like() => match (a.to_real(), b.to_real()) {
-            (Ok(x), Ok(y)) => x.r == y.r && x.c == y.c && x.d == y.d,
+            (Ok(x), Ok(y)) => {
+                x.r == y.r && x.c == y.c && x.d.iter().zip(&y.d).all(|(p, q)| same(*p, *q))
+            }
             _ => false,
         },
         _ => false,
@@ -528,6 +548,13 @@ fn f_isequal(_: &mut Interp, a: &[Value], _: usize) -> Out {
         return err("Abaco:arity", "`isequal` needs at least two arguments");
     }
     boolean(a[1..].iter().all(|v| values_equal(&a[0], v)))
+}
+
+fn f_isequaln(_: &mut Interp, a: &[Value], _: usize) -> Out {
+    if a.len() < 2 {
+        return err("Abaco:arity", "`isequaln` needs at least two arguments");
+    }
+    boolean(a[1..].iter().all(|v| equal_with(&a[0], v, true)))
 }
 
 fn cellstr(v: &Value, what: &str) -> Result<Vec<String>> {
@@ -682,6 +709,7 @@ pub const TABLE: &[(&str, Bf)] = &[
     ("arrayfun", f_arrayfun),
     ("structfun", f_structfun),
     ("isequal", f_isequal),
+    ("isequaln", f_isequaln),
     ("ismember", f_ismember),
     ("union", f_union),
     ("intersect", f_intersect),

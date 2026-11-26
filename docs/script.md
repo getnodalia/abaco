@@ -51,7 +51,9 @@ coexist. Units inside scripts are planned.
 | Differential equations | `ode45 ode23 ode113 ode23s ode15s ode23t odeset odeget` |
 | Control systems | `tf zpk ss tfdata zpkdata ssdata tf2ss ss2tf pole zero pzmap damp dcgain isstable evalfr freqresp series parallel feedback pid c2d ctrb obsv step impulse initial lsim stepinfo bode nyquist margin rlocus place lqr dlqr care dare lyap dlyap` |
 | Text | `sprintf printf fprintf disp display num2str int2str mat2str str2double str2num upper lower strtrim strrep strsplit strjoin strcat strtok strcmp strcmpi strncmp contains startsWith endsWith strfind regexp regexpi regexprep dec2bin bin2dec dec2hex hex2dec` |
-| Cells and structs | `cell struct fieldnames isfield rmfield getfield setfield struct2cell cell2struct num2cell cell2mat deal cellfun arrayfun structfun isequal ismember union intersect setdiff setxor` |
+| Cells and structs | `cell struct fieldnames isfield rmfield getfield setfield struct2cell cell2struct num2cell cell2mat deal cellfun arrayfun structfun isequal isequaln ismember union intersect setdiff setxor` |
+| Files | `readmatrix writematrix csvread csvwrite dlmread dlmwrite fileread isfile save load` |
+| Indices | `sub2ind ind2sub` |
 | System | `error warning assert rethrow MException lasterr tic toc clock now cputime eval evalc exist isvarname who format bitand bitor bitxor bitshift intmax intmin` |
 | Plots (recorded) | `plot plot3 scatter stem stairs bar hist semilogx semilogy loglog surf mesh contour imagesc fplot title xlabel ylabel zlabel legend grid axis xlim ylim hold figure close clf cla subplot` |
 
@@ -66,6 +68,9 @@ Scripts are untrusted input. Every run is bounded and stops with an error, never
   (200 million), output (4 MB) and array size (20 million elements) are limits (`Limits`);
 * a run can be cancelled from another thread (`Interp::cancel`);
 * hosts that run scripts on a thread with a big stack raise `Limits::max_stack` (the CLI does);
+* reading and writing files is off unless the host allows it (`Limits::files`; the app and the
+  CLI do, with the person's own scripts). A file read is capped at 64 MB, a file written is replaced
+  atomically, and relative paths are relative to the folder the program was started in;
 * the test suite fuzzes the parser with arbitrary text, calls every built-in with junk arguments and
   checks that deep expressions end in a limit error on a 2 MB stack.
 
@@ -105,8 +110,16 @@ chemistry (`tests/optode.rs`), a textbook linear program, a falling ball stopped
   gain margin as a ratio, not in dB. There are no delays, no `ss` descriptor forms, no `minreal`, `balreal`
   or `lqg`/`kalman`.
 * There are no character matrices: `char` and `num2str` of a matrix join rows with a newline.
-* No file or network functions yet (`fopen`, `readmatrix`, `save`, `load`); `input` and `keyboard`
-  are refused. `pause` never blocks.
+* Files: `readmatrix`, `writematrix`, `csvread`, `csvwrite`, `dlmread`, `dlmwrite` (delimited text; headers
+  are skipped, empty or non-numeric fields read as NaN; numbers are written so they read back exactly),
+  `fileread`, and `save`/`load`. `save(file, 'a', 'b')` writes the named variables (all when none are
+  named) to a text file of Ábaco's own (`.abd`, added when the name has no extension; it is not a MAT file
+  and MATLAB cannot read it). It holds numbers, complex numbers, logicals, text, cells, structs and named
+  handles; an anonymous function holds what it captured, so it is skipped with a warning. `load` restores
+  such a file (`S = load(file)` returns a struct instead) or reads a text file of numbers into a variable
+  named after the file. Both are function calls only: `save file x` is not command syntax. There is no
+  `fopen`/`fgetl`/`fwrite`, no `readtable`, no MAT, Excel or image files and no network functions;
+  `input` and `keyboard` are refused. `pause` never blocks.
 * No units, classes, packages or `containers.Map`.
 * Random streams are xoshiro256++; they are reproducible with `rng(seed)` but do not match MATLAB's.
 
