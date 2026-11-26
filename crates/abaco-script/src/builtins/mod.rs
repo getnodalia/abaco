@@ -14,6 +14,8 @@ mod elementwise;
 mod interpolate;
 mod linear;
 mod numeric;
+mod odesuite;
+mod optimize;
 mod plotting;
 mod poly;
 mod reduce;
@@ -38,6 +40,8 @@ fn registry() -> &'static HashMap<&'static str, Bf> {
             interpolate::TABLE,
             linear::TABLE,
             numeric::TABLE,
+            odesuite::TABLE,
+            optimize::TABLE,
             plotting::TABLE,
             poly::TABLE,
             reduce::TABLE,

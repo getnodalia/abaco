@@ -47,6 +47,8 @@ coexist. Units inside scripts are planned.
 | Statistics | `skewness kurtosis quantile iqr mad rms zscore rescale bounds corr histcounts movmean movsum movmedian movmax movmin movstd` |
 | Distributions and special functions | `normpdf normcdf norminv normrnd exppdf expcdf expinv unifpdf unifcdf chi2pdf chi2cdf tpdf tcdf fcdf binopdf binocdf poisspdf poisscdf erfinv erfcinv gammainc betainc beta betaln` |
 | Calculus | `integral quad quadgk integral2 fzero` |
+| Optimisation | `fminsearch fminunc fminbnd fsolve lsqnonlin lsqcurvefit linprog optimset optimget` |
+| Differential equations | `ode45 ode23 ode113 ode23s ode15s ode23t odeset odeget` |
 | Text | `sprintf printf fprintf disp display num2str int2str mat2str str2double str2num upper lower strtrim strrep strsplit strjoin strcat strtok strcmp strcmpi strncmp contains startsWith endsWith strfind regexp regexpi regexprep dec2bin bin2dec dec2hex hex2dec` |
 | Cells and structs | `cell struct fieldnames isfield rmfield getfield setfield struct2cell cell2struct num2cell cell2mat deal cellfun arrayfun structfun isequal ismember union intersect setdiff setxor` |
 | System | `error warning assert rethrow MException lasterr tic toc clock now cputime eval evalc exist isvarname who format bitand bitor bitxor bitshift intmax intmin` |
@@ -72,7 +74,8 @@ Numerical functions are checked against closed forms and published values (see
 `crates/abaco-script/tests/library.rs`): known linear systems, `Q R = A`, `P A = L U`, `U S Vᵀ = A`,
 `A V = V D`, `expm` of a rotation generator, FFT against the definition for every length up to 40,
 Butterworth coefficients against `scipy.signal.butter`, spline exactness on cubics, distributions against
-table values (`crates/abaco-script/tests/science.rs`), magic squares of every order class, `integral` of
+table values (`crates/abaco-script/tests/science.rs`), the Rosenbrock function, Robertson's stiff
+chemistry (`tests/optode.rs`), a textbook linear program, a falling ball stopped by an event, magic squares of every order class, `integral` of
 `e^(−x²)` over the real line, `fzero` of `cos x = x`, special-function values, and printf formatting.
 
 ## Limits, stated plainly
@@ -84,6 +87,15 @@ table values (`crates/abaco-script/tests/science.rs`), magic squares of every or
   economy-size `U` and `V`.
 * `fft` accepts any length (Bluestein for non-powers of two) up to 2²⁴ points. `interp1` has no `makima`,
   `spline` has no clamped end slopes, and `butter`/`cheby1` return transfer-function coefficients only.
+* Optimisation: `fminsearch` is Nelder–Mead, `fminunc` BFGS with finite-difference gradients, `fsolve`
+  and the `lsq*` functions Levenberg–Marquardt, `linprog` a two-phase simplex. There are no bounds or
+  constraints for the nonlinear solvers yet (`lb`/`ub`, `fmincon`, `quadprog`, `intlinprog` are missing).
+* ODEs: `ode45`, `ode23` and `ode113` all run the Dormand–Prince 5(4) pair, and `ode23s`, `ode15s` and
+  `ode23t` all run a Rosenbrock (2,3) solver; the names are accepted so MATLAB code runs, but they are not
+  the same algorithms. Output comes from the continuous extension at the times in `tspan` (or at every
+  step for a two-element `tspan`, without MATLAB's `Refine`). `Events` (terminal and direction),
+  backward integration and a constant `Mass` matrix (index-1 DAEs, singular allowed) work; a vector
+  `AbsTol`, a time-dependent `Mass`, `deval`, `ode15i` and `dde23` do not.
 * There are no character matrices: `char` and `num2str` of a matrix join rows with a newline.
 * No file or network functions yet (`fopen`, `readmatrix`, `save`, `load`); `input` and `keyboard`
   are refused. `pause` never blocks.

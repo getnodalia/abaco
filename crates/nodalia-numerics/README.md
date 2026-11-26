@@ -18,6 +18,8 @@ numbers that explain it; nothing returns a plausible-looking wrong answer.
 | `fft` | Radix-2 FFT and Bluestein for any length, convolution | The DFT definition for every length 1–40, round trip, Parseval, a pure tone in one bin |
 | `interp` | Linear, PCHIP and not-a-knot cubic splines as piecewise cubics | A cubic reproduced exactly, monotone data never overshoots, sine error O(h⁴) |
 | `special` | `ln Γ`, incomplete gamma and beta, `erf`, `erfc` and their inverses | Closed forms (`P(1,x)`, `I_x(2,2)`), `erf(erfinv(y)) = y`, domain errors are NaN |
+| `optim` | Nelder–Mead, Brent minimisation, BFGS, Levenberg–Marquardt, two-phase simplex | Rosenbrock, parabolas, `cos` on an interval, exponential fits, square systems, textbook linear programs (optimal, infeasible, unbounded) |
+| `ivp` | Dormand–Prince 5(4) and Rosenbrock (2,3), continuous extension, events, backward time, constant mass matrix | `e^−t` at off-grid times, oscillator period, stiff `y' = −1000(y − cos t)`, Robertson at t = 40, an index-1 DAE, a ball stopped at the ground |
 | `ode` | Dormand–Prince 5(4), adaptive steps, exact landing on output times, cancellation | `e^−t`, harmonic oscillator over a period, `t²`, blow-up reported |
 
 ## Limits, stated plainly
@@ -25,8 +27,8 @@ numbers that explain it; nothing returns a plausible-looking wrong answer.
 * Dense only. There are no sparse solvers yet; the circuit simulator will need them for large netlists.
 * `eigen::general` returns eigenvalues only, not eigenvectors, and accuracy for defective matrices is
   limited to about `ε^(1/m)` for a Jordan block of size `m` (that is a property of the problem).
-* `ode` is explicit: stiff problems will take very small steps and may hit the step budget. An implicit
-  solver is on the roadmap, not here.
+* `ode` is explicit; use `ivp` with `Method::Rosenbrock` for stiff problems. `ivp` has no variable-order
+  BDF or Adams methods, and its mass matrix is constant.
 * Algorithms are implemented from the published papers and textbooks named in each module; no code was
   copied from another numerical library.
 
