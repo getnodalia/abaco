@@ -10,7 +10,7 @@ functional, functional, validated (against analytic or published references), pr
 | Maths document, dependency graph, `.abaco` v1 | Functional; incremental result equals from-scratch result on random edit sequences |
 | Dense numerics (LU, Cholesky, QR, eigenvalues, roots, quadrature, ODE) | Functional; verified against closed forms (see the crate README) |
 | CLI | Functional on Linux; not tested on macOS or Windows |
-| egui app with NDL | Planned |
+| egui app with NDL | Partially functional: cells, results and errors in place, units panel, open and save, English and Spanish; Linux only so far; no undo, no plots |
 | Plots | Planned |
 | Symbolic computation | Planned |
 | Linear systems with sparse matrices, implicit ODE solvers | Planned (needed for stiff and large problems) |
@@ -19,7 +19,7 @@ functional, functional, validated (against analytic or published references), pr
 
 ## Next
 
-1. The egui app: document view with cells, results with units, errors in place.
+1. App: undo and redo, selection of several cells, drag to reorder, running on macOS and Windows.
 2. Plot cells.
 3. Matrix operators (`\` for solve) and statistics functions in the language.
 4. Symbolic differentiation and simplification.
