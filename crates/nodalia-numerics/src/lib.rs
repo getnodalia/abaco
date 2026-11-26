@@ -5,6 +5,7 @@
 #![doc = include_str!("../README.md")]
 
 pub mod cholesky;
+pub mod control;
 pub mod eigen;
 pub mod error;
 pub mod fft;

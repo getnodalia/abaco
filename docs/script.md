@@ -49,6 +49,7 @@ coexist. Units inside scripts are planned.
 | Calculus | `integral quad quadgk integral2 fzero` |
 | Optimisation | `fminsearch fminunc fminbnd fsolve lsqnonlin lsqcurvefit linprog optimset optimget` |
 | Differential equations | `ode45 ode23 ode113 ode23s ode15s ode23t odeset odeget` |
+| Control systems | `tf zpk ss tfdata zpkdata ssdata tf2ss ss2tf pole zero pzmap damp dcgain isstable evalfr freqresp series parallel feedback pid c2d ctrb obsv step impulse initial lsim stepinfo bode nyquist margin rlocus place lqr dlqr care dare lyap dlyap` |
 | Text | `sprintf printf fprintf disp display num2str int2str mat2str str2double str2num upper lower strtrim strrep strsplit strjoin strcat strtok strcmp strcmpi strncmp contains startsWith endsWith strfind regexp regexpi regexprep dec2bin bin2dec dec2hex hex2dec` |
 | Cells and structs | `cell struct fieldnames isfield rmfield getfield setfield struct2cell cell2struct num2cell cell2mat deal cellfun arrayfun structfun isequal ismember union intersect setdiff setxor` |
 | System | `error warning assert rethrow MException lasterr tic toc clock now cputime eval evalc exist isvarname who format bitand bitor bitxor bitshift intmax intmin` |
@@ -96,6 +97,13 @@ chemistry (`tests/optode.rs`), a textbook linear program, a falling ball stopped
   step for a two-element `tspan`, without MATLAB's `Refine`). `Events` (terminal and direction),
   backward integration and a constant `Mass` matrix (index-1 DAEs, singular allowed) work; a vector
   `AbsTol`, a time-dependent `Mass`, `deval`, `ode15i` and `dde23` do not.
+* Control systems: a model is a struct (`tf`, `zpk` or `ss`, continuous or with a sample time). There is no
+  operator overloading (`G1*G2`, `G/(1+G)`) and no `tf('s')`: use `series`, `parallel` and `feedback`, which
+  need single-input single-output models and return a transfer function. `step`, `impulse`, `lsim`, `initial`,
+  `stepinfo`, `bode`, `nyquist` and `margin` accept SISO models; `lsim` needs uniformly spaced times. `place` is
+  single-input (Ackermann), `lyap` is limited to 24 states, and models stop at 400 states. `margin` reports the
+  gain margin as a ratio, not in dB. There are no delays, no `ss` descriptor forms, no `minreal`, `balreal`
+  or `lqg`/`kalman`.
 * There are no character matrices: `char` and `num2str` of a matrix join rows with a newline.
 * No file or network functions yet (`fopen`, `readmatrix`, `save`, `load`); `input` and `keyboard`
   are refused. `pause` never blocks.

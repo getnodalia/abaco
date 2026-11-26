@@ -19,6 +19,7 @@ numbers that explain it; nothing returns a plausible-looking wrong answer.
 | `interp` | Linear, PCHIP and not-a-knot cubic splines as piecewise cubics | A cubic reproduced exactly, monotone data never overshoots, sine error O(h⁴) |
 | `special` | `ln Γ`, incomplete gamma and beta, `erf`, `erfc` and their inverses | Closed forms (`P(1,x)`, `I_x(2,2)`), `erf(erfinv(y)) = y`, domain errors are NaN |
 | `optim` | Nelder–Mead, Brent minimisation, BFGS, Levenberg–Marquardt, two-phase simplex | Rosenbrock, parabolas, `cos` on an interval, exponential fits, square systems, textbook linear programs (optimal, infeasible, unbounded) |
+| `control` | State space and transfer functions, `tf2ss`/`ss2tf`, ZOH and Tustin discretisation, controllability/observability, Ackermann pole placement, Lyapunov, Riccati (sign function, SDA), LQR, exact simulation, frequency response | Closed-form first-order and second-order responses, double-integrator LQR gain, Riccati and Lyapunov residuals, ZOH against the closed form |
 | `ivp` | Dormand–Prince 5(4) and Rosenbrock (2,3), continuous extension, events, backward time, constant mass matrix | `e^−t` at off-grid times, oscillator period, stiff `y' = −1000(y − cos t)`, Robertson at t = 40, an index-1 DAE, a ball stopped at the ground |
 | `ode` | Dormand–Prince 5(4), adaptive steps, exact landing on output times, cancellation | `e^−t`, harmonic oscillator over a period, `t²`, blow-up reported |
 

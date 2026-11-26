@@ -9,6 +9,7 @@ use crate::value::{Arr, Value};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
+mod control;
 mod create;
 mod elementwise;
 mod interpolate;
@@ -35,6 +36,7 @@ fn registry() -> &'static HashMap<&'static str, Bf> {
     REG.get_or_init(|| {
         let mut m: HashMap<&'static str, Bf> = HashMap::new();
         for table in [
+            control::TABLE,
             create::TABLE,
             elementwise::TABLE,
             interpolate::TABLE,
