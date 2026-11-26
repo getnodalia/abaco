@@ -72,7 +72,7 @@ Nothing here is validated for safety-critical use.
 
 ## Install
 
-No release has been published yet. A release is made by merging a version bump with its notes
+Releases are on the repository's releases page. A release is made by merging a version bump with its notes
 (`docs/release-notes/vX.Y.Z.md`): the workflows in `.github/workflows/` then build these files and
 attach them to the GitHub release, where `abaco-X.Y.Z-<os>-<arch>` names each of them.
 
