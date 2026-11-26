@@ -33,9 +33,12 @@
 
   <Fragment>
     <ComponentGroup Id="AbacoFiles" Directory="INSTALLFOLDER">
-      <Component Id="AbacoLicences">
-        <File Id="AbacoLicenceMit" Source="$(var.BinDir)\LICENSE-MIT" KeyPath="yes" />
-        <File Id="AbacoLicenceApache" Source="$(var.BinDir)\LICENSE-APACHE" />
+      <!-- One file per component: an automatic GUID needs exactly one. -->
+      <Component Id="AbacoLicenceMit">
+        <File Id="AbacoLicenceMitFile" Source="$(var.BinDir)\LICENSE-MIT" KeyPath="yes" />
+      </Component>
+      <Component Id="AbacoLicenceApache">
+        <File Id="AbacoLicenceApacheFile" Source="$(var.BinDir)\LICENSE-APACHE" KeyPath="yes" />
       </Component>
       <!-- The window's executable embeds no icon resource, so the file type points at this copy. -->
       <Component Id="AbacoIconFile">
