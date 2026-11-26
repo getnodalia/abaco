@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Ábaco" Manufacturer="Nodalia" Version="$(var.Version)" UpgradeCode="BA09DA54-EDDF-4CA1-84AD-AF3EE02D3C6C" Scope="perUserOrMachine" Compressed="yes" Language="1033">
+    <SummaryInformation Description="Ábaco mathematics and scientific computing" Manufacturer="Nodalia" />
+    <?include $(sys.SOURCEFILEDIR)install-policy.wxi?>
+    <!-- Same-version upgrades let successive pre-releases of one X.Y.Z replace each other
+         (MSI versions are numeric, so 1.2.3-rc.1 and 1.2.3-rc.2 are both 1.2.3). -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of Ábaco is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="AbacoIcon.ico" SourceFile="$(var.IconPath)" />
+    <Property Id="ARPPRODUCTICON" Value="AbacoIcon.ico" />
+    <Property Id="ARPURLINFOABOUT" Value="https://getnodalia.com/abaco" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://getnodalia.com/abaco" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/getnodalia/abaco/issues" />
+
+    <!-- Shared native setup UI, including install/uninstall completion. -->
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="CraftSuiteFolder" Name="Nodalia">
+        <Directory Id="INSTALLFOLDER" Name="Abaco" />
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <Feature Id="Main" Title="Ábaco" Level="1">
+      <ComponentGroupRef Id="AbacoFiles" />
+      <ComponentGroupRef Id="CraftInstallerSettings" />
+    </Feature>
+    <!-- Shared full UI; app installation policy remains below. -->
+    <UIRef Id="CraftInstallerUI" />
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="AbacoFiles" Directory="INSTALLFOLDER">
+      <Component Id="AbacoLicences">
+        <File Id="AbacoLicenceMit" Source="$(var.BinDir)\LICENSE-MIT" KeyPath="yes" />
+        <File Id="AbacoLicenceApache" Source="$(var.BinDir)\LICENSE-APACHE" />
+      </Component>
+      <!-- The window's executable embeds no icon resource, so the file type points at this copy. -->
+      <Component Id="AbacoIconFile">
+        <File Id="AbacoIconIco" Name="abaco.ico" Source="$(var.IconPath)" KeyPath="yes" />
+      </Component>
+      <Component Id="AbacoApp" Guid="73CBA028-560D-4AA1-B95D-929DFFCDE0D0">
+        <File Id="AbacoExe" Source="$(var.BinDir)\abaco.exe" KeyPath="yes">
+          <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Ábaco" Description="Ábaco mathematics and scientific computing" WorkingDirectory="INSTALLFOLDER" Advertise="yes" Icon="AbacoIcon.ico" IconIndex="0" />
+        </File>
+
+        <!-- .abaco: Ábaco's own format; Ábaco is its default app. -->
+        <ProgId Id="Abaco.Document" Description="Ábaco Document" Icon="AbacoIconIco" IconIndex="0">
+          <Extension Id="abaco" ContentType="application/x-abaco">
+            <Verb Id="open" Command="Open" TargetFile="AbacoExe" Argument="&quot;%1&quot;" />
+          </Extension>
+        </ProgId>
+
+        <!-- "Open with" app list and the Run dialog (Win+R "abaco"). -->
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\abaco.exe" Name="FriendlyAppName" Value="Ábaco" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\abaco.exe\shell\open\command" Value="&quot;[#AbacoExe]&quot; &quot;%1&quot;" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\abaco.exe\SupportedTypes" Name=".abaco" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\abaco.exe" Value="[#AbacoExe]" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Abaco" Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" />
+      </Component>
+
+      <Component Id="AbacoCli">
+        <File Id="AbacoCliExe" Source="$(var.BinDir)\abaco-cli.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

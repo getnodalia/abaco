@@ -1,0 +1,45 @@
+{
+  "id": "abaco",
+  "name": "Abaco",
+  "upgradeCode": "BA09DA54-EDDF-4CA1-84AD-AF3EE02D3C6C",
+  "sources": [
+    "abaco.wxs",
+    "installer-ui.wxs"
+  ],
+  "icon": "assets/app-icon/abaco.ico",
+  "localization": [],
+  "extensions": [],
+  "payloads": [
+    "LICENSE-APACHE",
+    "LICENSE-MIT",
+    "abaco-cli.exe",
+    "abaco.exe"
+  ],
+  "registry": [
+    [
+      "-1",
+      "Software\\Classes\\Applications\\abaco.exe",
+      "FriendlyAppName",
+      "\u00c1baco"
+    ],
+    [
+      "-1",
+      "Software\\Classes\\Applications\\abaco.exe\\shell\\open\\command",
+      "",
+      "\"[#AbacoExe]\" \"%1\""
+    ],
+    [
+      "-1",
+      "Software\\Classes\\Applications\\abaco.exe\\SupportedTypes",
+      ".abaco",
+      ""
+    ],
+    [
+      "-1",
+      "Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\abaco.exe",
+      "",
+      "[#AbacoExe]"
+    ]
+  ],
+  "mode": "dualScope"
+}
