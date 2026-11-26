@@ -3,11 +3,12 @@
 ```text
 nodalia-units  nodalia-numerics      shared engines, no app dependencies
         \            /
-        abaco-expr                   language: lexer, parser, evaluator
-             |
-        abaco-doc                    document, dependency graph, .abaco format
-             |
-   abaco-cli   (egui app, planned)   front ends
+    abaco-expr    abaco-script           languages: the units-aware expression language;
+        |              |                 the MATLAB-class matrix language (scripts, functions)
+        |              |
+    abaco-doc          |                 document, dependency graph, .abaco format
+        \\            /
+   abaco-cli   abaco-app                 front ends
 ```
 
 Rules:

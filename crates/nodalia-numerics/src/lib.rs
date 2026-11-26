@@ -8,12 +8,14 @@ pub mod cholesky;
 pub mod eigen;
 pub mod error;
 pub mod lu;
+pub mod matfun;
 pub mod matrix;
 pub mod ode;
 pub mod qr;
 pub mod quad;
 pub mod roots;
 pub mod scalar;
+pub mod svd;
 
 pub use error::{NumError, Result};
 pub use lu::{solve, Lu};

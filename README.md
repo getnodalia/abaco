@@ -29,7 +29,14 @@ error: cannot add m and s (length and time)
 * **Numerics** (`nodalia-numerics`): dense real and complex linear algebra (LU with condition
   estimate, Cholesky, QR least squares, eigenvalues), root finding, adaptive quadrature and an
   adaptive ODE integrator, each tested against analytic or published values.
-* **CLI** (`abaco`): `eval`, `run FILE`, `units list`, `units convert`, `--json`, `--digits N`.
+* **Ábaco Script** (`abaco-script`): a matrix language in the spirit of MATLAB: scripts, functions with
+  `varargin`/`varargout`, control flow, `try`/`catch`, cells, structs, function handles and anonymous
+  functions, strings and `printf`, regular expressions, complex numbers, a seeded random generator, and
+  more than 350 built-in functions (linear algebra with SVD, QR, LU, Cholesky, `expm`, polynomials,
+  integration, `fzero`, statistics, sorting and set operations, plot commands that record figures).
+  Reference and limits: [`docs/script.md`](docs/script.md).
+* **CLI** (`abaco`): `eval`, `run FILE`, `script FILE`, `repl`, `functions`, `units list`,
+  `units convert`, `--json`, `--digits N`.
 * **Desktop app** (`abaco-app`, egui with `nodalia-theme`): a document of cells. A maths cell has its
   input (coloured as you type) with its result and unit beside it; an error shows in place with
   line, column and the offending line quoted. Add, duplicate, delete and reorder cells; an outline of
@@ -41,7 +48,7 @@ error: cannot add m and s (length and time)
   it has not been run on macOS or Windows.
 
 What does not exist yet (see [`ROADMAP.md`](ROADMAP.md)): undo and redo in the app, plots, symbolic computation,
-statistics, control-systems and signal tools, optimisation, scripting beyond the expression language.
+signal, control-systems and optimisation toolboxes, block-diagram simulation, file I/O, and the app's command window and plot drawing for Ábaco Script.
 Nothing here is validated for safety-critical use.
 
 ## Install
@@ -75,7 +82,8 @@ cargo run -p abaco-app                      # the app (needs libxkbcommon-x11-0 
 |---|---|
 | `crates/nodalia-units` | Dimensions, units, quantities, constants. Shared with other Nodalia apps |
 | `crates/nodalia-numerics` | Dense linear algebra, roots, quadrature, ODEs. Shared with other Nodalia apps |
-| `crates/abaco-expr` | Lexer, parser and evaluator |
+| `crates/abaco-expr` | Lexer, parser and evaluator of the units-aware expression language |
+| `crates/abaco-script` | Ábaco Script: the matrix language, its interpreter and function library |
 | `crates/abaco-doc` | The reactive document and the `.abaco` format |
 | `apps/abaco-cli` | The `abaco` command |
 | `apps/abaco-app` | The `abaco-app` window: view-model and engine thread in the library, drawing in the binary |

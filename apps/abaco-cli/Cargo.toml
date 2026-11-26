@@ -11,6 +11,7 @@ authors.workspace = true
 [dependencies]
 abaco-doc = { path = "../../crates/abaco-doc" }
 abaco-expr = { path = "../../crates/abaco-expr" }
+abaco-script = { path = "../../crates/abaco-script" }
 nodalia-units = { path = "../../crates/nodalia-units" }
 serde_json = { workspace = true }
 
