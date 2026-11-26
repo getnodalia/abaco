@@ -20,6 +20,7 @@ path = "src/main.rs"
 [dependencies]
 abaco-doc = { path = "../../crates/abaco-doc" }
 abaco-expr = { path = "../../crates/abaco-expr" }
+abaco-script = { path = "../../crates/abaco-script" }
 nodalia-units = { path = "../../crates/nodalia-units" }
 eframe = { version = "0.37", default-features = false, features = ["accesskit", "clipboard", "default_fonts", "glow", "system_fonts", "wayland", "x11"] }
 egui = "0.37"

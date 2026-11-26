@@ -39,7 +39,7 @@ coexist. Units inside scripts are planned.
 | Creation | `zeros ones eye rand randn randi randperm rng linspace logspace colon meshgrid ndgrid magic toeplitz vander hilb diag triu tril kron repmat reshape cat horzcat vertcat circshift flip* rot90` |
 | Elementwise maths | trigonometric and hyperbolic (and inverses, degree variants), `exp log log2 log10 sqrt abs sign floor ceil round fix mod rem hypot atan2 nthroot gamma lgamma erf erfc factorial nchoosek gcd lcm isprime primes factor`, complex parts |
 | Reductions | `sum prod mean median mode var std range min max cumsum cumprod cummax cummin diff dot cross trapz cumtrapz any all find nnz sort sortrows unique histc cov corrcoef prctile` |
-| Linear algebra | `det inv \ linsolve trace rank pinv null orth cond norm svd eig chol lu qr expm issymmetric` |
+| Linear algebra | `det inv \ linsolve trace rank pinv null orth cond rcond norm svd eig chol lu qr expm issymmetric` |
 | Polynomials | `roots poly polyval polyfit polyder polyint conv deconv` |
 | Fourier and filtering | `fft ifft fft2 ifft2 fftshift ifftshift nextpow2 filter filtfilt freqz xcorr findpeaks detrend unwrap sinc` |
 | Filter design and windows | `butter cheby1 fir1 hamming hann bartlett blackman kaiser rectwin` |
@@ -109,3 +109,32 @@ chemistry (`tests/optode.rs`), a textbook linear program, a falling ball stopped
   are refused. `pause` never blocks.
 * No units, classes, packages or `containers.Map`.
 * Random streams are xoshiro256++; they are reproducible with `rng(seed)` but do not match MATLAB's.
+
+## In the app
+
+`abaco-app` runs Ábaco Script in its second workspace (View ▸ *Script and command window*, `Ctrl+J`;
+`Ctrl+Shift+J` goes back to the maths document; `abaco-app file.m` opens a script there).
+
+* **Editor**: `F5` runs the whole script, `Ctrl+Enter` the selection or, with none, the line the cursor
+  is on, `Ctrl+.` stops a run. A failure names the line in the editor's header and prints the message
+  with its function trace in the command window.
+* **Command window**: type a command and press Enter; the up and down arrows walk the history.
+  Output, warnings and errors keep their own colours. `clc` clears it; the window keeps its last 5,000
+  lines.
+* **Workspace**: every variable with its class, size and a one-line summary; selecting one shows what
+  `disp` would print for it, and the bin button forgets it.
+* **Figures**: one tab per figure. 2-D axes draw lines, markers, stems, stairs, bars and histograms
+  with ticks, grid, legend, log axes and `axis equal`; 3-D axes draw `surf`/`mesh` and `plot3`, and
+  dragging turns the view.
+* The interpreter lives on its own thread for the whole session, so variables survive between runs. A
+  run is stopped by a flag the interpreter checks at every step.
+
+## Conditioning
+
+`A\b`, `linsolve` and `inv` estimate the reciprocal condition number of the matrix (a 1-norm
+estimate from the LU factors). When it falls below machine epsilon the answer is still returned, but
+the statement is followed by the warning *Matrix is close to singular or badly scaled. Results may be
+inaccurate. RCOND = …*, as MATLAB does; `rcond(A)` returns the estimate. An exactly singular matrix is
+an error. Verified: `rcond(eye(n)) = 1`, `rcond` of an exactly singular matrix is `0`, and
+`rcond(hilb(6))` is within 20 % of the published 1/2.9070e7 (a 1-norm estimate need not match the exact
+value).

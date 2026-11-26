@@ -9,15 +9,18 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::Duration;
 
-use abaco_app::commands::Cmd;
+use abaco_app::commands::{Category, Cmd};
 use abaco_app::engine::{with_extension, Engine, Notice, Request};
 use abaco_app::i18n::{self, tr, trf, Lang};
-use abaco_app::settings::{Appearance, Settings, SidePanel};
+use abaco_app::script::engine::{Job, ScriptEngine};
+use abaco_app::script::session::{self as script, ReadError, Session};
+use abaco_app::settings::{Appearance, Settings, SidePanel, Workspace};
 use abaco_app::workbook::{Msg, Workbook};
 use nodalia_theme::engineering::{self as eng, Look};
 use nodalia_theme::for_egui::{self, Appearance as NdlAppearance};
 use nodalia_theme::{Accent, Mode};
 
+use crate::figure::FigureView;
 use crate::panels::UnitsState;
 use crate::{chrome, ui};
 
@@ -28,6 +31,8 @@ pub enum Pending {
     Sample,
     OpenDialog,
     Open(PathBuf),
+    NewScript,
+    OpenScriptDialog,
     Quit,
 }
 
@@ -51,6 +56,15 @@ pub struct Toast {
 enum Dialog {
     Open(Option<PathBuf>),
     SaveAs(Option<PathBuf>),
+    /// A script was picked and read (`None`: the dialog was cancelled).
+    ScriptOpened(Option<Result<(PathBuf, String), ReadError>>),
+    ScriptSaveAs(Option<PathBuf>),
+    /// A script was written; `text` is what went to disk.
+    ScriptSaved {
+        path: PathBuf,
+        text: String,
+        result: Result<(), String>,
+    },
 }
 
 pub struct App {
@@ -64,6 +78,12 @@ pub struct App {
     pub home: bool,
     pub toasts: Vec<Toast>,
     pub units: UnitsState,
+    /// The script workspace: editor, command window, variables, figures.
+    pub script: Session,
+    script_engine: Option<ScriptEngine>,
+    /// The interpreter's thread is gone: scripts do not run any more.
+    pub script_lost: bool,
+    pub figure_view: FigureView,
     tx: Sender<Dialog>,
     rx: Receiver<Dialog>,
     dialog_open: bool,
@@ -95,6 +115,8 @@ impl App {
         let (tx, rx) = channel();
         let wake = ctx.clone();
         let engine = Engine::spawn(move || wake.request_repaint()).ok();
+        let wake = ctx.clone();
+        let script_engine = ScriptEngine::spawn(move || wake.request_repaint()).ok();
         let mut app = App {
             wb: Workbook::new(),
             engine_lost: engine.is_none(),
@@ -103,6 +125,10 @@ impl App {
             home: false,
             toasts: Vec::new(),
             units: UnitsState::default(),
+            script: Session::new(),
+            script_lost: script_engine.is_none(),
+            script_engine,
+            figure_view: FigureView::default(),
             tx,
             rx,
             dialog_open: false,
@@ -129,7 +155,20 @@ impl App {
     /// The first document: a file named on the command line, the one left open last time, the
     /// sample on the very first launch, else a blank page.
     fn start(&mut self, open: Vec<PathBuf>) {
-        let given = open.into_iter().find(|p| p.is_file());
+        let (scripts, documents): (Vec<PathBuf>, Vec<PathBuf>) = open.into_iter().partition(|p| {
+            p.extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case(script::EXTENSION))
+        });
+        if let Some(path) = scripts.into_iter().find(|p| p.is_file()) {
+            match script::read_script(&path) {
+                Ok(text) => {
+                    self.script.open(path, text);
+                    self.set_workspace(Workspace::Script);
+                }
+                Err(e) => self.toast(read_error_text(&e)),
+            }
+        }
+        let given = documents.into_iter().find(|p| p.is_file());
         let last = self.settings.last_file.clone().filter(|p| p.is_file());
         if let Some(path) = given.or(last) {
             self.msg(Msg::Open(path));
@@ -243,17 +282,188 @@ impl App {
         for notice in std::mem::take(&mut self.wb.notices) {
             self.notice(notice);
         }
+        self.poll_script();
         while let Ok(done) = self.rx.try_recv() {
             self.dialog_open = false;
             match done {
                 Dialog::Open(Some(path)) => {
                     self.home = false;
+                    self.set_workspace(Workspace::Document);
                     self.msg(Msg::Open(path));
                 }
                 Dialog::SaveAs(Some(path)) => self.msg(Msg::Save(Some(with_extension(&path)))),
-                Dialog::Open(None) | Dialog::SaveAs(None) => self.after_save = None,
+                Dialog::Open(None) | Dialog::SaveAs(None) | Dialog::ScriptSaveAs(None) => {
+                    self.after_save = None;
+                }
+                Dialog::ScriptOpened(None) => {}
+                Dialog::ScriptOpened(Some(Ok((path, text)))) => {
+                    self.script.open(path, text);
+                    self.home = false;
+                    self.set_workspace(Workspace::Script);
+                }
+                Dialog::ScriptOpened(Some(Err(e))) => self.toast(read_error_text(&e)),
+                Dialog::ScriptSaveAs(Some(path)) => {
+                    self.write_script(script::with_script_extension(&path))
+                }
+                Dialog::ScriptSaved { path, text, result } => self.script_saved(path, text, result),
             }
         }
+    }
+
+    // --- Scripts ------------------------------------------------------------------------------
+
+    fn poll_script(&mut self) {
+        let replies = self
+            .script_engine
+            .as_mut()
+            .map(ScriptEngine::poll)
+            .unwrap_or_default();
+        if replies.is_empty() {
+            return;
+        }
+        for reply in replies {
+            self.script.apply(reply);
+        }
+        if let Some(job) = self.script.refresh_selection() {
+            self.script_send(job);
+        }
+        if std::mem::take(&mut self.script.figure_appeared) && !self.settings.show_figures_panel {
+            self.settings.show_figures_panel = true;
+            self.save_settings();
+        }
+    }
+
+    /// Hands a job to the interpreter; when it is gone, says so and ends the run.
+    pub fn script_send(&mut self, job: Job) {
+        let sent = match self.script_engine.as_mut() {
+            Some(engine) => engine.send(job).is_ok(),
+            None => false,
+        };
+        if !sent {
+            self.script.running = false;
+            if !self.script_lost {
+                self.script_lost = true;
+                self.toast(tr(
+                    "The script interpreter stopped. Save your work and restart Ábaco.",
+                ));
+            }
+        }
+    }
+
+    fn script_saved(&mut self, path: PathBuf, text: String, result: Result<(), String>) {
+        let name = path
+            .file_name()
+            .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+        match result {
+            Ok(()) => {
+                // Typing went on while the file was written: what is on disk is older.
+                self.script.dirty = self.script.editor != text;
+                self.script.path = Some(path);
+                self.toast(trf("Saved {}", &[&name]));
+                if let Some(next) = self.after_save.take() {
+                    self.guard(next);
+                }
+            }
+            Err(message) => {
+                self.after_save = None;
+                self.toast(trf("Could not save {}: {}", &[&name, &message]));
+            }
+        }
+    }
+
+    fn write_script(&mut self, path: PathBuf) {
+        let text = self.script.editor.clone();
+        let tx = self.tx.clone();
+        let ctx = self.ctx.clone();
+        let spawned = std::thread::Builder::new()
+            .name("save-script".into())
+            .spawn(move || {
+                let result = script::write_script(&path, &text).map_err(|e| e.to_string());
+                let _ = tx.send(Dialog::ScriptSaved { path, text, result });
+                ctx.request_repaint();
+            });
+        if spawned.is_err() {
+            self.after_save = None;
+            self.toast(tr("Could not save the script."));
+        }
+    }
+
+    fn save_script(&mut self) {
+        match self.script.path.clone() {
+            Some(path) => self.write_script(path),
+            None => self.pick_save_script(),
+        }
+    }
+
+    fn pick_open_script(&mut self) {
+        if self.dialog_open {
+            return;
+        }
+        let title = tr("Open a script");
+        let filter = tr("Scripts");
+        self.dialog("open-script", move || {
+            let picked = pollster::block_on(
+                rfd::AsyncFileDialog::new()
+                    .set_title(title)
+                    .add_filter(filter, &[script::EXTENSION, "txt"])
+                    .pick_file(),
+            )
+            .map(|f| f.path().to_path_buf());
+            Dialog::ScriptOpened(picked.map(|path| script::read_script(&path).map(|t| (path, t))))
+        });
+    }
+
+    fn pick_save_script(&mut self) {
+        if self.dialog_open {
+            return;
+        }
+        let title = tr("Save the script");
+        let filter = tr("Scripts");
+        let start = self
+            .script
+            .file_name()
+            .unwrap_or_else(|| format!("{}.{}", tr("script"), script::EXTENSION));
+        self.dialog("save-script-dialog", move || {
+            let picked = pollster::block_on(
+                rfd::AsyncFileDialog::new()
+                    .set_title(title)
+                    .set_file_name(start)
+                    .add_filter(filter, &[script::EXTENSION])
+                    .save_file(),
+            )
+            .map(|f| f.path().to_path_buf());
+            Dialog::ScriptSaveAs(picked)
+        });
+    }
+
+    /// Runs a dialog on a thread of its own and answers through the channel.
+    fn dialog(&mut self, name: &str, job: impl FnOnce() -> Dialog + Send + 'static) {
+        self.dialog_open = true;
+        let tx = self.tx.clone();
+        let ctx = self.ctx.clone();
+        let spawned = std::thread::Builder::new()
+            .name(name.into())
+            .spawn(move || {
+                let _ = tx.send(job());
+                ctx.request_repaint();
+            });
+        if spawned.is_err() {
+            self.dialog_open = false;
+            self.after_save = None;
+            self.toast(tr("Could not open the file dialog."));
+        }
+    }
+
+    /// Switches between the maths document and the script workspace.
+    pub fn set_workspace(&mut self, workspace: Workspace) {
+        if self.settings.workspace != workspace {
+            self.settings.workspace = workspace;
+            self.save_settings();
+        }
+    }
+
+    pub fn script_mode(&self) -> bool {
+        self.settings.workspace == Workspace::Script
     }
 
     fn notice(&mut self, notice: Notice) {
@@ -272,7 +482,7 @@ impl App {
                 self.save_settings();
                 self.toast(trf("Saved {}", &[&name(&path)]));
                 if let Some(next) = self.after_save.take() {
-                    self.proceed(next);
+                    self.guard(next);
                 }
             }
             Notice::OpenFailed { path, message } => {
@@ -368,10 +578,42 @@ impl App {
 
     /// Asks about unsaved changes before `pending` replaces the document.
     pub fn guard(&mut self, pending: Pending) {
-        if self.wb.dirty {
+        if self.unsaved(&pending) {
             self.overlay = Overlay::Confirm(pending);
         } else {
             self.proceed(pending);
+        }
+    }
+
+    /// What `pending` would throw away is not saved.
+    fn unsaved(&self, pending: &Pending) -> bool {
+        match pending {
+            Pending::NewBlank | Pending::Sample | Pending::OpenDialog | Pending::Open(_) => {
+                self.wb.dirty
+            }
+            Pending::NewScript | Pending::OpenScriptDialog => self.script.dirty,
+            Pending::Quit => self.wb.dirty || self.script.dirty,
+        }
+    }
+
+    /// Whether the unsaved work `pending` would lose is the script's (the document's comes
+    /// first when both are).
+    fn script_is_unsaved_for(&self, pending: &Pending) -> bool {
+        match pending {
+            Pending::NewScript | Pending::OpenScriptDialog => true,
+            Pending::Quit => !self.wb.dirty && self.script.dirty,
+            _ => false,
+        }
+    }
+
+    /// The name of what is unsaved, for the question about it.
+    pub fn unsaved_name(&self, pending: &Pending) -> String {
+        if self.script_is_unsaved_for(pending) {
+            self.script
+                .file_name()
+                .unwrap_or_else(|| tr("Untitled script").to_owned())
+        } else {
+            self.dirty_title_of_document()
         }
     }
 
@@ -380,17 +622,26 @@ impl App {
         match pending {
             Pending::NewBlank => {
                 self.home = false;
+                self.set_workspace(Workspace::Document);
                 self.msg(Msg::NewBlank);
             }
             Pending::Sample => {
                 self.home = false;
+                self.set_workspace(Workspace::Document);
                 self.msg(Msg::NewSample);
             }
             Pending::OpenDialog => self.pick_open(),
             Pending::Open(path) => {
                 self.home = false;
+                self.set_workspace(Workspace::Document);
                 self.msg(Msg::Open(path));
             }
+            Pending::NewScript => {
+                self.script.new_script();
+                self.home = false;
+                self.set_workspace(Workspace::Script);
+            }
+            Pending::OpenScriptDialog => self.pick_open_script(),
             Pending::Quit => {
                 self.quit_ok = true;
                 self.ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -400,15 +651,25 @@ impl App {
 
     /// "Save" in the unsaved-changes question: save, then carry on.
     pub fn save_then(&mut self, pending: Pending) {
+        let script = self.script_is_unsaved_for(&pending);
         self.after_save = Some(pending);
-        self.save();
+        if script {
+            self.save_script();
+        } else {
+            self.save();
+        }
     }
 
     // --- Commands -----------------------------------------------------------------------------
 
     pub fn run(&mut self, cmd: Cmd) {
         let selected = self.wb.selected;
+        let scripting = self.script_mode() && !self.home;
         match cmd {
+            Cmd::NewBlank if scripting => self.guard(Pending::NewScript),
+            Cmd::Open if scripting => self.guard(Pending::OpenScriptDialog),
+            Cmd::Save if scripting => self.save_script(),
+            Cmd::SaveAs if scripting => self.pick_save_script(),
             Cmd::NewBlank => self.guard(Pending::NewBlank),
             Cmd::OpenSample => self.guard(Pending::Sample),
             Cmd::Open => self.guard(Pending::OpenDialog),
@@ -457,6 +718,37 @@ impl App {
             }
             Cmd::ShowUnits => self.show_panel(SidePanel::Units),
             Cmd::ShowDocumentSettings => self.show_panel(SidePanel::Document),
+            Cmd::ShowDocument => {
+                self.set_workspace(Workspace::Document);
+                self.home = false;
+            }
+            Cmd::ShowScript => {
+                self.set_workspace(Workspace::Script);
+                self.home = false;
+            }
+            Cmd::ToggleWorkspacePanel => {
+                self.settings.show_workspace_panel = !self.settings.show_workspace_panel;
+                self.save_settings();
+            }
+            Cmd::ToggleFiguresPanel => {
+                self.settings.show_figures_panel = !self.settings.show_figures_panel;
+                self.save_settings();
+            }
+            Cmd::RunScript => {
+                self.set_workspace(Workspace::Script);
+                self.home = false;
+                if let Some(job) = self.script.run_editor() {
+                    self.script_send(job);
+                }
+            }
+            Cmd::StopScript => {
+                if let Some(engine) = &self.script_engine {
+                    engine.stop();
+                }
+            }
+            Cmd::ClearWorkspace => self.script_send(Job::ClearVariables),
+            Cmd::ClearCommandWindow => self.script.clear_window(),
+            Cmd::CloseFigures => self.script_send(Job::CloseFigures),
             Cmd::CommandSearch => self.overlay = Overlay::Search(String::new()),
             Cmd::Preferences => self.overlay = Overlay::Preferences,
             Cmd::KeyboardShortcuts => self.overlay = Overlay::Shortcuts(String::new()),
@@ -478,6 +770,7 @@ impl App {
         // Most specific first: egui matches a shortcut even when Shift or Alt are also held.
         let mut table: Vec<(Cmd, egui::KeyboardShortcut)> = Cmd::ALL
             .iter()
+            .filter(|c| !(self.script_mode() && !self.home && c.category() == Category::Cells))
             .filter_map(|c| c.shortcut().map(|s| (*c, s)))
             .collect();
         table.sort_by_key(|(_, s)| {
@@ -496,10 +789,30 @@ impl App {
         }
     }
 
-    pub fn dirty_title(&self) -> String {
+    fn dirty_title_of_document(&self) -> String {
         self.wb
             .file_name()
             .unwrap_or_else(|| tr("Untitled").to_owned())
+    }
+
+    /// The name the title bar shows: the document's, or the script's in the script workspace.
+    pub fn dirty_title(&self) -> String {
+        if self.script_mode() {
+            self.script
+                .file_name()
+                .unwrap_or_else(|| tr("Untitled script").to_owned())
+        } else {
+            self.dirty_title_of_document()
+        }
+    }
+
+    /// The open document or script has changes that are not on disk.
+    pub fn title_modified(&self) -> bool {
+        if self.script_mode() {
+            self.script.dirty
+        } else {
+            self.wb.dirty
+        }
     }
 }
 
@@ -518,7 +831,10 @@ impl eframe::App for App {
         }
 
         // Closing the window asks about unsaved work first.
-        if ctx.input(|i| i.viewport().close_requested()) && !self.quit_ok && self.wb.dirty {
+        if ctx.input(|i| i.viewport().close_requested())
+            && !self.quit_ok
+            && (self.wb.dirty || self.script.dirty)
+        {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.overlay = Overlay::Confirm(Pending::Quit);
         }
@@ -544,5 +860,14 @@ impl eframe::App for App {
 
     fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
         visuals.window_fill.to_normalized_gamma_f32()
+    }
+}
+
+/// What went wrong reading a script, in words.
+fn read_error_text(error: &ReadError) -> String {
+    match error {
+        ReadError::TooLarge => tr("The file is too large to open as a script.").to_owned(),
+        ReadError::NotText => tr("The file is not text.").to_owned(),
+        ReadError::Io(message) => trf("Could not open the script: {}", &[message]),
     }
 }

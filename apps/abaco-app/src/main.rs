@@ -20,11 +20,13 @@
 mod app;
 mod cells;
 mod chrome;
+mod figure;
 #[cfg(target_os = "linux")]
 mod linux_menu;
 mod menu;
 mod overlays;
 mod panels;
+mod script_ui;
 mod ui;
 mod widgets;
 
@@ -43,7 +45,7 @@ fn main() -> ExitCode {
             }
             "--help" | "-h" => {
                 println!(
-                    "Usage: abaco-app [FILE.abaco]\n\nABACO_CONFIG_DIR=<folder> keeps the preferences in <folder>."
+                    "Usage: abaco-app [FILE.abaco | SCRIPT.m]\n\nABACO_CONFIG_DIR=<folder> keeps the preferences in <folder>."
                 );
                 return ExitCode::SUCCESS;
             }

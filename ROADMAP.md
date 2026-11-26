@@ -9,10 +9,10 @@ functional, functional, validated (against analytic or published references), pr
 | Expression language (units, complex, vectors, matrices, functions) | Functional; fuzzed for panics |
 | Maths document, dependency graph, `.abaco` v1 | Functional; incremental result equals from-scratch result on random edit sequences |
 | Dense numerics (LU, Cholesky, QR, eigenvalues, roots, quadrature, ODE) | Functional; verified against closed forms (see the crate README) |
-| Ábaco Script (matrix language: scripts, functions, control flow, cells, structs, handles, 350+ built-ins, plot recording) | Functional in the library and CLI (`abaco script`, `abaco repl`); verified against analytic results, fuzzed for panics, stack and step bounded; not yet in the app; 2-D arrays only |
+| Ábaco Script (matrix language: scripts, functions, control flow, cells, structs, handles, 350+ built-ins, plot recording) | Functional in the library and CLI (`abaco script`, `abaco repl`); verified against analytic results, fuzzed for panics, stack and step bounded; also in the app's script workspace; 2-D arrays only |
 | CLI | Functional on Linux; not tested on macOS or Windows |
-| egui app with NDL | Partially functional: cells, results and errors in place, units panel, open and save, English and Spanish; Linux only so far; no undo, no plots |
-| Plots | Recorded by the language (`plot`, `surf`, `hist`, …); drawing in the app is planned |
+| egui app with NDL | Partially functional: cells, results and errors in place, units panel, open and save, a script workspace (editor, command window with history, variable browser, figures), English and Spanish; Linux only so far; no undo in the document |
+| Plots | Recorded by the language (`plot`, `surf`, `hist`, …) and drawn in the app (2-D with ticks, grid, legend and log axes; 3-D surfaces and curves with an orbit camera); no export to PNG/SVG yet; drawn on the CPU-side of egui, checked by eye in a software-rendered window, not against reference images |
 | Symbolic computation | Planned |
 | Linear systems with sparse matrices, implicit ODE solvers | Planned (needed for stiff and large problems) |
 | Statistics, distributions, special functions | Functional in Ábaco Script (moments, quantiles, moving windows, normal/t/χ²/F/binomial/Poisson, incomplete gamma and beta); regression beyond `polyfit` planned |
@@ -32,8 +32,8 @@ MATLAB and Simulink coverage is being built in increments (each ends in a pull r
    `abaco script` and `abaco repl` commands.
 2. **Scientific library**: signals and FFT, filters, control systems, optimisation, interpolation,
    statistics, the ODE/DAE suite, symbolic basics, file I/O.
-3. **App**: command window, workspace browser, script editor, 2-D and 3-D plot drawing, undo and redo,
-   English and Spanish.
+3. **App** (script workspace done: command window, variable browser, script editor, 2-D and 3-D plot
+   drawing, English and Spanish; undo and redo in the document and figure export still open).
 4. **Block diagrams**: a Simulink-style modeller with its own solvers (sources, scopes, math,
    continuous and discrete blocks, transfer functions, state space, PID, subsystems).
 

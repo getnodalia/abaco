@@ -141,6 +141,11 @@ fn f_cond(_: &mut Interp, a: &[Value], _: usize) -> Out {
     }
 }
 
+fn f_rcond(_: &mut Interp, a: &[Value], _: usize) -> Out {
+    arity(a, 1, 1, "rcond")?;
+    num(crate::linalg::rcond(&real_arg(a, 0, "rcond")?)?)
+}
+
 fn f_norm(_: &mut Interp, args: &[Value], _: usize) -> Out {
     arity(args, 1, 2, "norm")?;
     if let Value::Cplx(z) = &args[0] {
@@ -464,6 +469,7 @@ pub const TABLE: &[(&str, Bf)] = &[
     ("null", f_null),
     ("orth", f_orth),
     ("cond", f_cond),
+    ("rcond", f_rcond),
     ("norm", f_norm),
     ("issymmetric", f_issymmetric),
     ("eig", f_eig),

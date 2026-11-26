@@ -46,9 +46,16 @@ error: cannot add m and s (length and time)
   function). Evaluation runs on a worker thread, so typing never waits for it. English and Spanish,
   light and dark. The Linux menu is exported to the shell's top bar. It has been run on Linux only;
   it has not been run on macOS or Windows.
+  A second workspace (View ▸ Script and command window, `Ctrl+J`; or open a `.m` file) runs Ábaco
+  Script: an editor (`F5` runs it, `Ctrl+Enter` runs the selection or the line, `Ctrl+.` stops it), a
+  command window with history (up and down arrows), a variable browser that shows what each variable
+  holds, and the figures the script drew: 2-D plots with ticks, grids and legends, and 3-D surfaces you
+  can turn with the mouse. The interpreter runs on a thread of its own, so a long script never freezes
+  the window. A linear system whose answer is mostly rounding noise (`A\b` with a nearly singular `A`)
+  warns with its `RCOND`.
 
-What does not exist yet (see [`ROADMAP.md`](ROADMAP.md)): undo and redo in the app, plots, symbolic computation,
-signal, control-systems and optimisation toolboxes, block-diagram simulation, file I/O, and the app's command window and plot drawing for Ábaco Script.
+What does not exist yet (see [`ROADMAP.md`](ROADMAP.md)): undo and redo in the app, exporting figures, symbolic
+computation, block-diagram simulation and file I/O from scripts (`readmatrix`, `save`, `load`).
 Nothing here is validated for safety-critical use.
 
 ## Install

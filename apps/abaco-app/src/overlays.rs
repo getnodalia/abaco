@@ -394,7 +394,7 @@ fn about_window(ctx: &egui::Context, app: &mut App, look: &Look) -> Shown {
 // --- Unsaved changes ----------------------------------------------------------------------------
 
 fn confirm(ctx: &egui::Context, app: &mut App, look: &Look, pending: Pending) -> Shown {
-    let name = app.dirty_title();
+    let name = app.unsaved_name(&pending);
     let mut answer: Option<u8> = None;
     let dismissed = modal(ctx, look, "abaco-confirm", 440.0, false, |ui| {
         if heading(ui, look, tr("Save your changes?"), "confirm") {
