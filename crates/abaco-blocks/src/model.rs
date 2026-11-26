@@ -907,6 +907,23 @@ impl Model {
 }
 
 impl BlockKind {
+    /// Number of input and output ports, as drawn in an editor; `None` when the parameters
+    /// are invalid (for example a sign string with a character other than `+` or `-`).
+    pub fn ports(&self) -> Option<(usize, usize)> {
+        if let BlockKind::Subsystem { model } = self {
+            let (mut i, mut o) = (0, 0);
+            for b in &model.blocks {
+                match b.kind {
+                    BlockKind::Inport { .. } => i += 1,
+                    BlockKind::Outport { .. } => o += 1,
+                    _ => {}
+                }
+            }
+            return Some((i, o));
+        }
+        crate::compile::port_counts("", self).ok()
+    }
+
     /// A short human name for the kind, for messages.
     pub fn label(&self) -> String {
         let dbg = format!("{self:?}");

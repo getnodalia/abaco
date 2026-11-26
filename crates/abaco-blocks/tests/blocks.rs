@@ -1164,3 +1164,71 @@ fn the_bundled_servo_example_settles_on_its_reference() {
     assert!(torque.iter().any(|&u| (u - 5.0).abs() < 1e-12));
     assert!(torque.iter().all(|&u| u.abs() <= 5.0 + 1e-12));
 }
+
+#[test]
+fn the_palette_offers_every_kind_with_valid_defaults() {
+    let entries = palette();
+    // Every entry parsed (a bad default would be dropped), and the categories are the listed ones.
+    assert_eq!(
+        entries.len(),
+        60,
+        "an entry failed to parse or was added without updating this"
+    );
+    for e in &entries {
+        assert!(CATEGORIES.contains(&e.category), "{}", e.name);
+        assert_eq!(e.kind.type_name(), e.name);
+        assert!(e.kind.ports().is_some(), "{}", e.name);
+    }
+    // Names are unique.
+    let mut names: Vec<_> = entries.iter().map(|e| e.name).collect();
+    names.sort_unstable();
+    names.dedup();
+    assert_eq!(names.len(), entries.len());
+}
+
+#[test]
+fn a_palette_block_runs_once_its_inputs_are_tied() {
+    // Each default block, fed constants on every input and read by a terminator, compiles
+    // (a Stop or Goto/From pair or a subsystem included) or fails with a message, never a panic.
+    for e in palette() {
+        let mut m = Model::new("one");
+        m.solver.stop_time = 1.0;
+        m.add("b", e.kind.clone()).unwrap();
+        let (n_in, n_out) = e.kind.ports().unwrap();
+        for i in 0..n_in {
+            let name = format!("c{i}");
+            let width = if e.name == "Demux" { 2 } else { 1 };
+            m.add(
+                name.as_str(),
+                BlockKind::Constant {
+                    value: vec![1.0; width],
+                },
+            )
+            .unwrap();
+            m.connect((name.as_str(), 0), ("b", i));
+        }
+        for o in 0..n_out {
+            let name = format!("t{o}");
+            m.add(name.as_str(), BlockKind::Terminator).unwrap();
+            m.connect(("b", o), (name.as_str(), 0));
+        }
+        let r = simulate(&m);
+        if let Err(e2) = &r {
+            // A From with no Goto is the one legitimate refusal here.
+            assert!(e.name == "From", "{}: {e2}", e.name);
+        }
+    }
+}
+
+#[test]
+fn a_run_can_be_cancelled() {
+    let mut m = decay(Method::Dopri5, None, 1e-6);
+    m.solver.stop_time = 1e6;
+    let c = compile(&m).unwrap();
+    let flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let opts = SimOptions {
+        cancel: Some(flag),
+        ..SimOptions::default()
+    };
+    assert_eq!(c.simulate(&opts).unwrap_err(), BlockError::Cancelled);
+}

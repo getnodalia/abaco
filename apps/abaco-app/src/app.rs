@@ -9,6 +9,8 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::Duration;
 
+use abaco_app::blocks::engine::{BlocksEngine, Job as BlocksJob};
+use abaco_app::blocks::session::{self as blocks, Session as BlocksSession};
 use abaco_app::commands::{Category, Cmd};
 use abaco_app::engine::{with_extension, Engine, Notice, Request};
 use abaco_app::i18n::{self, tr, trf, Lang};
@@ -20,6 +22,7 @@ use nodalia_theme::engineering::{self as eng, Look};
 use nodalia_theme::for_egui::{self, Appearance as NdlAppearance};
 use nodalia_theme::{Accent, Mode};
 
+use crate::blocks_ui::BlocksView;
 use crate::figure::FigureView;
 use crate::panels::UnitsState;
 use crate::{chrome, ui};
@@ -33,6 +36,8 @@ pub enum Pending {
     Open(PathBuf),
     NewScript,
     OpenScriptDialog,
+    NewBlocks,
+    OpenBlocksDialog,
     Quit,
 }
 
@@ -65,6 +70,15 @@ enum Dialog {
         text: String,
         result: Result<(), String>,
     },
+    /// A diagram was picked and read (`None`: the dialog was cancelled).
+    BlocksOpened(Option<Result<(PathBuf, String), String>>),
+    BlocksSaveAs(Option<PathBuf>),
+    /// A diagram was written; `text` is what went to disk.
+    BlocksSaved {
+        path: PathBuf,
+        text: String,
+        result: Result<(), String>,
+    },
 }
 
 pub struct App {
@@ -84,6 +98,12 @@ pub struct App {
     /// The interpreter's thread is gone: scripts do not run any more.
     pub script_lost: bool,
     pub figure_view: FigureView,
+    /// The block-diagram workspace: the diagram, its selection and its last run.
+    pub blocks: BlocksSession,
+    blocks_engine: Option<BlocksEngine>,
+    /// The simulation thread is gone: diagrams do not run any more.
+    pub blocks_lost: bool,
+    pub blocks_view: BlocksView,
     tx: Sender<Dialog>,
     rx: Receiver<Dialog>,
     dialog_open: bool,
@@ -117,6 +137,8 @@ impl App {
         let engine = Engine::spawn(move || wake.request_repaint()).ok();
         let wake = ctx.clone();
         let script_engine = ScriptEngine::spawn(move || wake.request_repaint()).ok();
+        let wake = ctx.clone();
+        let blocks_engine = BlocksEngine::spawn(move || wake.request_repaint()).ok();
         let mut app = App {
             wb: Workbook::new(),
             engine_lost: engine.is_none(),
@@ -129,6 +151,10 @@ impl App {
             script_lost: script_engine.is_none(),
             script_engine,
             figure_view: FigureView::default(),
+            blocks: BlocksSession::new(),
+            blocks_lost: blocks_engine.is_none(),
+            blocks_engine,
+            blocks_view: BlocksView::default(),
             tx,
             rx,
             dialog_open: false,
@@ -283,6 +309,7 @@ impl App {
             self.notice(notice);
         }
         self.poll_script();
+        self.poll_blocks();
         while let Ok(done) = self.rx.try_recv() {
             self.dialog_open = false;
             match done {
@@ -306,6 +333,16 @@ impl App {
                     self.write_script(script::with_script_extension(&path))
                 }
                 Dialog::ScriptSaved { path, text, result } => self.script_saved(path, text, result),
+                Dialog::BlocksOpened(None) => {}
+                Dialog::BlocksOpened(Some(Ok((path, text)))) => self.open_blocks(path, &text),
+                Dialog::BlocksOpened(Some(Err(message))) => {
+                    self.toast(trf("Could not open the diagram: {}", &[&message]));
+                }
+                Dialog::BlocksSaveAs(Some(path)) => {
+                    self.write_blocks(blocks::with_extension(&path))
+                }
+                Dialog::BlocksSaveAs(None) => self.after_save = None,
+                Dialog::BlocksSaved { path, text, result } => self.blocks_saved(path, text, result),
             }
         }
     }
@@ -434,6 +471,144 @@ impl App {
             .map(|f| f.path().to_path_buf());
             Dialog::ScriptSaveAs(picked)
         });
+    }
+
+    // --- Block diagrams -----------------------------------------------------------------------
+
+    fn poll_blocks(&mut self) {
+        let replies = self
+            .blocks_engine
+            .as_mut()
+            .map(BlocksEngine::poll)
+            .unwrap_or_default();
+        for reply in replies {
+            self.blocks.apply(reply);
+        }
+    }
+
+    /// Hands a job to the simulator; when it is gone, says so and ends the run.
+    pub fn blocks_send(&mut self, job: BlocksJob) {
+        let sent = match self.blocks_engine.as_mut() {
+            Some(engine) => engine.send(job).is_ok(),
+            None => false,
+        };
+        if !sent {
+            self.blocks.running = false;
+            if !self.blocks_lost {
+                self.blocks_lost = true;
+                self.toast(tr(
+                    "The simulator stopped. Save your work and restart Ábaco.",
+                ));
+            }
+        }
+    }
+
+    fn open_blocks(&mut self, path: PathBuf, text: &str) {
+        match self.blocks.open(Some(path), text) {
+            Ok(()) => {
+                self.blocks_view.fit_next = true;
+                self.home = false;
+                self.set_workspace(Workspace::Blocks);
+            }
+            Err(message) => self.toast(trf("Could not open the diagram: {}", &[&message])),
+        }
+    }
+
+    fn blocks_saved(&mut self, path: PathBuf, text: String, result: Result<(), String>) {
+        let name = path
+            .file_name()
+            .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+        match result {
+            Ok(()) => {
+                // Editing went on while the file was written: what is on disk is older.
+                self.blocks.dirty = self.blocks.text().map_or(true, |now| now != text);
+                self.blocks.path = Some(path);
+                self.toast(trf("Saved {}", &[&name]));
+                if let Some(next) = self.after_save.take() {
+                    self.guard(next);
+                }
+            }
+            Err(message) => {
+                self.after_save = None;
+                self.toast(trf("Could not save {}: {}", &[&name, &message]));
+            }
+        }
+    }
+
+    fn write_blocks(&mut self, path: PathBuf) {
+        let text = match self.blocks.text() {
+            Ok(text) => text,
+            Err(message) => {
+                self.after_save = None;
+                self.toast(trf("Could not save the diagram: {}", &[&message]));
+                return;
+            }
+        };
+        let tx = self.tx.clone();
+        let ctx = self.ctx.clone();
+        let spawned = std::thread::Builder::new()
+            .name("save-diagram".into())
+            .spawn(move || {
+                let result = blocks::write_diagram(&path, &text).map_err(|e| e.to_string());
+                let _ = tx.send(Dialog::BlocksSaved { path, text, result });
+                ctx.request_repaint();
+            });
+        if spawned.is_err() {
+            self.after_save = None;
+            self.toast(tr("Could not save the diagram."));
+        }
+    }
+
+    fn save_blocks(&mut self) {
+        match self.blocks.path.clone() {
+            Some(path) => self.write_blocks(path),
+            None => self.pick_save_blocks(),
+        }
+    }
+
+    fn pick_open_blocks(&mut self) {
+        if self.dialog_open {
+            return;
+        }
+        let title = tr("Open a diagram");
+        let filter = tr("Block diagrams");
+        self.dialog("open-diagram", move || {
+            let picked = pollster::block_on(
+                rfd::AsyncFileDialog::new()
+                    .set_title(title)
+                    .add_filter(filter, &[blocks::EXTENSION])
+                    .pick_file(),
+            )
+            .map(|f| f.path().to_path_buf());
+            Dialog::BlocksOpened(picked.map(|path| blocks::read_diagram(&path).map(|t| (path, t))))
+        });
+    }
+
+    fn pick_save_blocks(&mut self) {
+        if self.dialog_open {
+            return;
+        }
+        let title = tr("Save the diagram");
+        let filter = tr("Block diagrams");
+        let start = self
+            .blocks
+            .file_name()
+            .unwrap_or_else(|| format!("{}.{}", tr("diagram"), blocks::EXTENSION));
+        self.dialog("save-diagram-dialog", move || {
+            let picked = pollster::block_on(
+                rfd::AsyncFileDialog::new()
+                    .set_title(title)
+                    .set_file_name(start)
+                    .add_filter(filter, &[blocks::EXTENSION])
+                    .save_file(),
+            )
+            .map(|f| f.path().to_path_buf());
+            Dialog::BlocksSaveAs(picked)
+        });
+    }
+
+    pub fn blocks_mode(&self) -> bool {
+        self.settings.workspace == Workspace::Blocks
     }
 
     /// Runs a dialog on a thread of its own and answers through the channel.
@@ -592,7 +767,8 @@ impl App {
                 self.wb.dirty
             }
             Pending::NewScript | Pending::OpenScriptDialog => self.script.dirty,
-            Pending::Quit => self.wb.dirty || self.script.dirty,
+            Pending::NewBlocks | Pending::OpenBlocksDialog => self.blocks.dirty,
+            Pending::Quit => self.wb.dirty || self.script.dirty || self.blocks.dirty,
         }
     }
 
@@ -606,9 +782,23 @@ impl App {
         }
     }
 
+    /// Whether the unsaved work `pending` would lose is the diagram's (the document's and the
+    /// script's come first).
+    fn blocks_is_unsaved_for(&self, pending: &Pending) -> bool {
+        match pending {
+            Pending::NewBlocks | Pending::OpenBlocksDialog => true,
+            Pending::Quit => !self.wb.dirty && !self.script.dirty && self.blocks.dirty,
+            _ => false,
+        }
+    }
+
     /// The name of what is unsaved, for the question about it.
     pub fn unsaved_name(&self, pending: &Pending) -> String {
-        if self.script_is_unsaved_for(pending) {
+        if self.blocks_is_unsaved_for(pending) {
+            self.blocks
+                .file_name()
+                .unwrap_or_else(|| tr("Untitled diagram").to_owned())
+        } else if self.script_is_unsaved_for(pending) {
             self.script
                 .file_name()
                 .unwrap_or_else(|| tr("Untitled script").to_owned())
@@ -642,6 +832,13 @@ impl App {
                 self.set_workspace(Workspace::Script);
             }
             Pending::OpenScriptDialog => self.pick_open_script(),
+            Pending::NewBlocks => {
+                self.blocks.new_diagram();
+                self.blocks_view.fit_next = true;
+                self.home = false;
+                self.set_workspace(Workspace::Blocks);
+            }
+            Pending::OpenBlocksDialog => self.pick_open_blocks(),
             Pending::Quit => {
                 self.quit_ok = true;
                 self.ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -652,8 +849,11 @@ impl App {
     /// "Save" in the unsaved-changes question: save, then carry on.
     pub fn save_then(&mut self, pending: Pending) {
         let script = self.script_is_unsaved_for(&pending);
+        let diagram = self.blocks_is_unsaved_for(&pending);
         self.after_save = Some(pending);
-        if script {
+        if diagram {
+            self.save_blocks();
+        } else if script {
             self.save_script();
         } else {
             self.save();
@@ -665,7 +865,12 @@ impl App {
     pub fn run(&mut self, cmd: Cmd) {
         let selected = self.wb.selected;
         let scripting = self.script_mode() && !self.home;
+        let diagrams = self.blocks_mode() && !self.home;
         match cmd {
+            Cmd::NewBlank if diagrams => self.guard(Pending::NewBlocks),
+            Cmd::Open if diagrams => self.guard(Pending::OpenBlocksDialog),
+            Cmd::Save if diagrams => self.save_blocks(),
+            Cmd::SaveAs if diagrams => self.pick_save_blocks(),
             Cmd::NewBlank if scripting => self.guard(Pending::NewScript),
             Cmd::Open if scripting => self.guard(Pending::OpenScriptDialog),
             Cmd::Save if scripting => self.save_script(),
@@ -726,6 +931,29 @@ impl App {
                 self.set_workspace(Workspace::Script);
                 self.home = false;
             }
+            Cmd::ShowBlocks => {
+                self.set_workspace(Workspace::Blocks);
+                self.home = false;
+            }
+            Cmd::RunBlocks => {
+                self.set_workspace(Workspace::Blocks);
+                self.home = false;
+                if let Some(job) = self.blocks.run() {
+                    self.blocks_send(job);
+                }
+            }
+            Cmd::StopBlocks => {
+                if let Some(engine) = &self.blocks_engine {
+                    engine.stop();
+                }
+            }
+            Cmd::DeleteBlock => self.blocks.delete_selected(),
+            Cmd::BlocksExample => {
+                self.blocks.open_example();
+                self.blocks_view.fit_next = true;
+                self.set_workspace(Workspace::Blocks);
+                self.home = false;
+            }
             Cmd::ToggleWorkspacePanel => {
                 self.settings.show_workspace_panel = !self.settings.show_workspace_panel;
                 self.save_settings();
@@ -771,6 +999,7 @@ impl App {
         let mut table: Vec<(Cmd, egui::KeyboardShortcut)> = Cmd::ALL
             .iter()
             .filter(|c| !(self.script_mode() && !self.home && c.category() == Category::Cells))
+            .filter(|c| !(self.blocks_mode() && !self.home && c.category() == Category::Cells))
             .filter_map(|c| c.shortcut().map(|s| (*c, s)))
             .collect();
         table.sort_by_key(|(_, s)| {
@@ -797,7 +1026,11 @@ impl App {
 
     /// The name the title bar shows: the document's, or the script's in the script workspace.
     pub fn dirty_title(&self) -> String {
-        if self.script_mode() {
+        if self.blocks_mode() {
+            self.blocks
+                .file_name()
+                .unwrap_or_else(|| tr("Untitled diagram").to_owned())
+        } else if self.script_mode() {
             self.script
                 .file_name()
                 .unwrap_or_else(|| tr("Untitled script").to_owned())
@@ -808,7 +1041,9 @@ impl App {
 
     /// The open document or script has changes that are not on disk.
     pub fn title_modified(&self) -> bool {
-        if self.script_mode() {
+        if self.blocks_mode() {
+            self.blocks.dirty
+        } else if self.script_mode() {
             self.script.dirty
         } else {
             self.wb.dirty
@@ -833,7 +1068,7 @@ impl eframe::App for App {
         // Closing the window asks about unsaved work first.
         if ctx.input(|i| i.viewport().close_requested())
             && !self.quit_ok
-            && (self.wb.dirty || self.script.dirty)
+            && (self.wb.dirty || self.script.dirty || self.blocks.dirty)
         {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.overlay = Overlay::Confirm(Pending::Quit);

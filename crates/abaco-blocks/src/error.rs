@@ -31,6 +31,9 @@ pub enum BlockError {
     /// The solver could not continue.
     #[error("{0}")]
     Solver(String),
+    /// The run was stopped by the caller.
+    #[error("the simulation was stopped")]
+    Cancelled,
 }
 
 impl BlockError {

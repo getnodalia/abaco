@@ -70,9 +70,30 @@ a PID loop in closed form; a Van der Pol limit-cycle amplitude of 2.0086; seeded
 linearisation of a pendulum. A property-based fuzz test runs random (including nonsensical) diagrams
 and file text; 60,000 cases ran without a panic.
 
+## The editor
+
+The app's block workspace (View ▸ Block diagrams, `Ctrl+Shift+L`) edits the same JSON files.
+
+* **Library**: the blocks listed above, grouped and searchable; clicking one adds it at the middle
+  of the canvas with default parameters.
+* **Canvas**: drag a block to move it (it snaps to a grid), drag from an output port to an input
+  port to wire them (a new line replaces the one already on that input), click a line to select it,
+  `Delete` removes the selection, scroll or drag the background to pan, `Ctrl`+scroll or pinch to
+  zoom, and the fit button frames the whole diagram.
+* **Inspector**: the selected block's name and parameters. Numbers, booleans, text and lists are
+  edited as text and applied with `Enter`; a value the engine refuses (an unknown shape, a matrix
+  that is not rectangular) is explained below the fields and nothing changes. With nothing
+  selected, it shows the solver settings (method, start and stop time, steps, tolerances).
+* **Run**: `F6` compiles and runs the diagram on a worker thread, `Shift+F6` stops it at the next
+  step, and each `Scope`, `ToWorkspace` and `Outport` is plotted. An error names the block.
+* Blocks without a saved position are laid out in columns from the sources; a feedback loop is cut
+  where it closes, so the layout stays as wide as the longest forward path.
+
 ## Not done yet
 
-No drag-and-drop editor in the app yet (diagrams are JSON); no Stateflow-style state machines, no
+The editor has no undo and redo, no multiple selection, no copy and paste, no way to open a
+subsystem to edit it (it shows how many blocks it holds; edit its JSON), no routing of lines around
+blocks (they are curves), and a block cannot be dragged straight from the library. There are no Stateflow-style state machines, no
 physical-network (Simscape-style) blocks, no code generation, no variable-size or integer/fixed-point
 signals (everything is `f64`), no algebraic-loop solver (loops are reported, not solved), no
 Simulink `.slx` import. The stiff solver is limited to 400 states. Nothing here is validated for

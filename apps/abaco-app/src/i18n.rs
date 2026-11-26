@@ -88,6 +88,15 @@ pub fn translate(english: &str) -> &str {
         .map_or(english, |(_, es)| es)
 }
 
+/// The Spanish text for `english`, `None` when the table has no row for it.
+pub fn translate_known(english: &str) -> Option<&'static str> {
+    SPANISH
+        .binary_search_by(|(en, _)| (*en).cmp(english))
+        .ok()
+        .and_then(|i| SPANISH.get(i))
+        .map(|(_, es)| *es)
+}
+
 /// [`tr`] with each `{}` replaced, in order, by `args`.
 pub fn trf(english: &'static str, args: &[&str]) -> String {
     let mut out = String::new();

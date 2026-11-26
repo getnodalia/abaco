@@ -3,6 +3,7 @@
 //! only draws and collects what the person did; the app carries it out after the frame, so no
 //! widget holds a borrow of the state it changes.
 
+use abaco_app::blocks::engine::Job as BlocksJob;
 use abaco_app::commands::Cmd;
 use abaco_app::i18n::tr;
 use abaco_app::script::engine::Job;
@@ -15,7 +16,7 @@ use nodalia_theme::for_egui::color;
 use nodalia_theme::Mode;
 
 use crate::app::App;
-use crate::{cells, chrome, overlays, panels, script_ui};
+use crate::{blocks_ui, cells, chrome, overlays, panels, script_ui};
 
 const RIBBON_H: f32 = 84.0;
 const MIN_CENTER: f32 = 420.0;
@@ -39,7 +40,9 @@ pub fn show(ui: &mut Ui, app: &mut App) {
     let mut cmds: Vec<Cmd> = Vec::new();
     let mut msgs: Vec<Msg> = Vec::new();
     let mut jobs: Vec<Job> = Vec::new();
+    let mut block_jobs: Vec<BlocksJob> = Vec::new();
     let scripting = app.script_mode() && !app.home;
+    let diagrams = app.blocks_mode() && !app.home;
     let gap = layout::GAP;
 
     let title = Rect::from_min_size(full.min, vec2(full.width(), layout::TITLE_BAR));
@@ -50,7 +53,9 @@ pub fn show(ui: &mut Ui, app: &mut App) {
         pos2(full.right() - gap, title.bottom() + RIBBON_H),
     );
     island(ui, &look, ribbon, "ribbon", |ui| {
-        if app.script_mode() {
+        if app.blocks_mode() {
+            blocks_ribbon(ui, &look, app, &mut cmds)
+        } else if app.script_mode() {
             script_ribbon(ui, &look, app, &mut cmds)
         } else {
             ribbon_tools(ui, &look, app, &mut cmds)
@@ -66,7 +71,15 @@ pub fn show(ui: &mut Ui, app: &mut App) {
         pos2(full.right() - gap, status.top()),
     );
 
-    if scripting {
+    if diagrams {
+        let mut out = blocks_ui::Out::default();
+        blocks_ui::body(ui, &look, app, body, &mut out);
+        block_jobs.append(&mut out.jobs);
+        cmds.append(&mut out.cmds);
+        for text in out.toasts {
+            app.toast(text);
+        }
+    } else if scripting {
         let mut out = script_ui::Out::default();
         script_ui::body(ui, &look, app, body, &mut out);
         jobs.append(&mut out.jobs);
@@ -76,7 +89,9 @@ pub fn show(ui: &mut Ui, app: &mut App) {
     }
 
     ui.scope_builder(UiBuilder::new().max_rect(status), |ui| {
-        if scripting {
+        if diagrams {
+            blocks_ui::status(ui, &look, app);
+        } else if scripting {
             script_ui::status(ui, &look, app);
         } else {
             panels::status(ui, &look, &app.wb, &app.settings, app.engine_lost);
@@ -93,6 +108,9 @@ pub fn show(ui: &mut Ui, app: &mut App) {
     }
     for job in jobs {
         app.script_send(job);
+    }
+    for job in block_jobs {
+        app.blocks_send(job);
     }
     for cmd in cmds {
         app.run(cmd);
@@ -244,6 +262,7 @@ fn ribbon_tools(ui: &mut Ui, look: &Look, app: &App, cmds: &mut Vec<Cmd>) {
         eng::ribbon_group(ui, look, tr("Workspace"), |ui| {
             tool(ui, Cmd::ShowDocument, true, cmds, true);
             tool(ui, Cmd::ShowScript, true, cmds, false);
+            tool(ui, Cmd::ShowBlocks, true, cmds, false);
         });
     });
 }
@@ -299,6 +318,64 @@ fn script_ribbon(ui: &mut Ui, look: &Look, app: &App, cmds: &mut Vec<Cmd>) {
         eng::ribbon_group(ui, look, tr("Workspace"), |ui| {
             tool(ui, Cmd::ShowDocument, true, cmds, false);
             tool(ui, Cmd::ShowScript, true, cmds, true);
+            tool(ui, Cmd::ShowBlocks, true, cmds, false);
+        });
+    });
+}
+
+/// The ribbon of the block-diagram workspace.
+fn blocks_ribbon(ui: &mut Ui, look: &Look, app: &App, cmds: &mut Vec<Cmd>) {
+    let tool = |ui: &mut Ui, cmd: Cmd, enabled: bool, cmds: &mut Vec<Cmd>, active: bool| {
+        let name = cmd.icon().unwrap_or("more");
+        let response = ui
+            .add_enabled_ui(enabled, |ui| {
+                eng::ribbon_tool(ui, look, name, short_label(cmd), active)
+            })
+            .inner;
+        let hint = match cmd.shortcut_label(cfg!(target_os = "macos")) {
+            Some(s) => format!("{}  {s}", cmd.translated()),
+            None => cmd.translated().to_owned(),
+        };
+        if response.on_hover_text(hint).clicked() && enabled {
+            cmds.push(cmd);
+        }
+    };
+    let running = app.blocks.running;
+    let selected = app.blocks.selected.is_some() || app.blocks.selected_line.is_some();
+    ui.horizontal_top(|ui| {
+        ui.spacing_mut().item_spacing.x = 2.0;
+        eng::ribbon_group(ui, look, tr("Diagram"), |ui| {
+            for cmd in [Cmd::NewBlank, Cmd::Open, Cmd::Save, Cmd::BlocksExample] {
+                tool(ui, cmd, true, cmds, false);
+            }
+        });
+        eng::ribbon_group(ui, look, tr("Simulation"), |ui| {
+            tool(ui, Cmd::RunBlocks, !running, cmds, false);
+            tool(ui, Cmd::StopBlocks, running, cmds, false);
+        });
+        eng::ribbon_group(ui, look, tr("Edit"), |ui| {
+            tool(ui, Cmd::DeleteBlock, selected, cmds, false);
+        });
+        eng::ribbon_group(ui, look, tr("View"), |ui| {
+            tool(
+                ui,
+                Cmd::ToggleWorkspacePanel,
+                true,
+                cmds,
+                app.settings.show_workspace_panel,
+            );
+            tool(
+                ui,
+                Cmd::ToggleFiguresPanel,
+                true,
+                cmds,
+                app.settings.show_figures_panel,
+            );
+        });
+        eng::ribbon_group(ui, look, tr("Workspace"), |ui| {
+            tool(ui, Cmd::ShowDocument, true, cmds, false);
+            tool(ui, Cmd::ShowScript, true, cmds, false);
+            tool(ui, Cmd::ShowBlocks, true, cmds, true);
         });
     });
 }
@@ -321,6 +398,11 @@ fn short_label(cmd: Cmd) -> &'static str {
         Cmd::ShowDocumentSettings => tr("Settings"),
         Cmd::ShowDocument => tr("Document"),
         Cmd::ShowScript => tr("Script"),
+        Cmd::ShowBlocks => tr("Blocks"),
+        Cmd::RunBlocks => tr("Run"),
+        Cmd::StopBlocks => tr("Stop"),
+        Cmd::DeleteBlock => tr("Delete"),
+        Cmd::BlocksExample => tr("Example"),
         Cmd::RunScript => tr("Run"),
         Cmd::StopScript => tr("Stop"),
         Cmd::ClearWorkspace => tr("Variables"),
@@ -420,11 +502,11 @@ fn title_bar(
         Some(TitleAction::Search) => cmds.push(Cmd::CommandSearch),
         Some(TitleAction::Undo) | Some(TitleAction::Redo) | None => {}
     }
-    title_menus(ui, look, app.script_mode(), cmds);
+    title_menus(ui, look, app.script_mode(), app.blocks_mode(), cmds);
 }
 
 /// The File menu and the hamburger menu, opened from the title bar.
-fn title_menus(ui: &mut Ui, look: &Look, scripting: bool, cmds: &mut Vec<Cmd>) {
+fn title_menus(ui: &mut Ui, look: &Look, scripting: bool, diagrams: bool, cmds: &mut Vec<Cmd>) {
     let ctx = ui.ctx().clone();
     let at = |id: Id| {
         ctx.data(|d| d.get_temp::<egui::Pos2>(id.with("at")))
@@ -442,6 +524,10 @@ fn title_menus(ui: &mut Ui, look: &Look, scripting: bool, cmds: &mut Vec<Cmd>) {
     let item = |ui: &mut Ui, cmd: Cmd, cmds: &mut Vec<Cmd>| {
         let shortcut = cmd.shortcut_label(mac);
         let label = match (scripting, cmd) {
+            _ if diagrams && cmd == Cmd::NewBlank => tr("New diagram"),
+            _ if diagrams && cmd == Cmd::Open => tr("Open a diagram…"),
+            _ if diagrams && cmd == Cmd::Save => tr("Save the diagram"),
+            _ if diagrams && cmd == Cmd::SaveAs => tr("Save the diagram as…"),
             (true, Cmd::NewBlank) => tr("New script"),
             (true, Cmd::Open) => tr("Open a script…"),
             (true, Cmd::Save) => tr("Save the script"),

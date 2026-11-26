@@ -70,6 +70,7 @@ pub fn tree() -> Vec<(&'static str, Vec<Entry>)> {
                 None,
                 some(ShowDocument),
                 some(ShowScript),
+                some(ShowBlocks),
                 some(ToggleWorkspacePanel),
                 some(ToggleFiguresPanel),
                 None,
@@ -85,6 +86,17 @@ pub fn tree() -> Vec<(&'static str, Vec<Entry>)> {
                 some(ClearWorkspace),
                 some(ClearCommandWindow),
                 some(CloseFigures),
+            ]),
+        ),
+        (
+            tr("Blocks"),
+            items(&[
+                some(RunBlocks),
+                some(StopBlocks),
+                None,
+                some(DeleteBlock),
+                None,
+                some(BlocksExample),
             ]),
         ),
     ]

@@ -85,6 +85,8 @@ impl SimResult {
 pub struct SimOptions {
     /// Constant values for the diagram's top-level `Inport` blocks (zero when missing).
     pub inputs: Vec<f64>,
+    /// Set from another thread to stop the run; it ends with [`BlockError::Cancelled`].
+    pub cancel: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 }
 
 /// Compiles and runs a model.
@@ -695,6 +697,13 @@ fn run(c: &Compiled, opts: &SimOptions) -> Result<SimResult> {
     let mut g_new: Vec<f64> = Vec::new();
 
     loop {
+        if opts
+            .cancel
+            .as_ref()
+            .is_some_and(|c| c.load(std::sync::atomic::Ordering::Relaxed))
+        {
+            return Err(BlockError::Cancelled);
+        }
         let tol = blocks::time_tol(t);
         // Which discrete blocks sample now.
         let mut hit = vec![false; c.nodes.len()];
