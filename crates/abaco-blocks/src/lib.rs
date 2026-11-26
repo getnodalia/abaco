@@ -41,6 +41,7 @@ pub mod compile;
 pub mod error;
 pub mod lti;
 pub mod model;
+pub mod palette;
 pub mod sim;
 
 pub use compile::{compile, Compiled};
@@ -50,4 +51,5 @@ pub use model::{
     Block, BlockKind, DiscreteRule, Extremum, Line, LogicOp, MathFunc, Method, Model, RelOp,
     RoundMode, SolverConfig, SwitchRule, WaveShape,
 };
+pub use palette::{palette, PaletteEntry, CATEGORIES};
 pub use sim::{simulate, Signal, SimOptions, SimResult, Stats};

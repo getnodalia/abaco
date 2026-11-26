@@ -11,7 +11,7 @@ functional, functional, validated (against analytic or published references), pr
 | Dense numerics (LU, Cholesky, QR, eigenvalues, roots, quadrature, ODE) | Functional; verified against closed forms (see the crate README) |
 | Ábaco Script (matrix language: scripts, functions, control flow, cells, structs, handles, 350+ built-ins, plot recording) | Functional in the library and CLI (`abaco script`, `abaco repl`); verified against analytic results, fuzzed for panics, stack and step bounded; also in the app's script workspace; 2-D arrays only |
 | CLI | Functional on Linux; not tested on macOS or Windows |
-| egui app with NDL | Partially functional: cells, results and errors in place, units panel, open and save, a script workspace (editor, command window with history, variable browser, figures), English and Spanish; Linux only so far; no undo in the document |
+| egui app with NDL | Partially functional: cells, results and errors in place, units panel, open and save, a script workspace (editor, command window with history, variable browser, figures), a block-diagram workspace (library, canvas, inspector, plots), English and Spanish; Linux only so far; no undo in the document |
 | Plots | Recorded by the language (`plot`, `surf`, `hist`, …) and drawn in the app (2-D with ticks, grid, legend and log axes; 3-D surfaces and curves with an orbit camera); no export to PNG/SVG yet; drawn on the CPU-side of egui, checked by eye in a software-rendered window, not against reference images |
 | Symbolic computation | Planned |
 | Linear systems with sparse matrices, implicit ODE solvers | Planned (needed for stiff and large problems) |
@@ -20,7 +20,7 @@ functional, functional, validated (against analytic or published references), pr
 | Optimisation | Functional in Ábaco Script (Nelder–Mead, BFGS, Brent, Levenberg–Marquardt, simplex `linprog`); no constrained nonlinear solvers or quadratic programming yet |
 | Signals and filters | Functional (FFT of any length, `filter`, `filtfilt`, Butterworth/Chebyshev/FIR design, windows, spectra helpers) |
 | Control systems (`tf`/`zpk`/`ss`, step/bode/nyquist/margin/rlocus, `place`, `lqr`, Riccati and Lyapunov, `c2d`) | Functional in the library (`nodalia-numerics::control`) and in Ábaco Script; verified against closed forms (first-order step, second-order overshoot, gain margin 6 of 1/(s(s+1)(s+2)), LQR of a double integrator, ZOH, Riccati/Lyapunov residuals); SISO interconnection only, no operator overloading |
-| Block-diagram modelling and simulation (Simulink-class) | Functional in the library and CLI (`abaco-blocks`, `abaco sim`): about 60 blocks, fixed and variable step solvers including a stiff one, exact discrete and switching events, zero-crossing detection, subsystems, linearisation; verified against analytic solutions and fuzzed; no graphical editor in the app yet, no Stateflow, physical networks, code generation or `.slx` import (`docs/blocks.md`) |
+| Block-diagram modelling and simulation (Simulink-class) | Functional in the library and CLI (`abaco-blocks`, `abaco sim`): about 60 blocks, fixed and variable step solvers including a stiff one, exact discrete and switching events, zero-crossing detection, subsystems, linearisation; verified against analytic solutions and fuzzed; a graphical editor in the app (no undo, no subsystem drill-down yet); no Stateflow, physical networks, code generation or `.slx` import (`docs/blocks.md`) |
 | ODE/DAE solver suite (`ode45`, stiff solvers, events) | Partially functional: Dormand–Prince 5(4) and Rosenbrock (2,3) with dense output, events, backward integration and a constant mass matrix (index-1 DAEs); no variable-order BDF/Adams, no `ode15i`, no delay equations |
 | File I/O (CSV, MAT-like) | Planned |
 
@@ -34,8 +34,8 @@ MATLAB and Simulink coverage is being built in increments (each ends in a pull r
    statistics, the ODE/DAE suite, symbolic basics, file I/O.
 3. **App** (script workspace done: command window, variable browser, script editor, 2-D and 3-D plot
    drawing, English and Spanish; undo and redo in the document and figure export still open).
-4. **Block diagrams**: a Simulink-style modeller with its own solvers (engine and `abaco sim` done;
-   the graphical editor in the app is next).
+4. **Block diagrams**: a Simulink-style modeller with its own solvers (engine, `abaco sim` and the
+   graphical editor in the app done; undo, subsystem drill-down and multi-selection still open).
 
 Also: selection of several cells, drag to reorder, running on macOS and Windows; symbolic
 differentiation and simplification.

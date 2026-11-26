@@ -39,8 +39,8 @@ error: cannot add m and s (length and time)
   own: about 60 blocks (sources, scopes, math, routing, subsystems, continuous and discrete
   dynamics, transfer functions, state space, PID, transport delay), fixed-step and variable-step
   methods including a stiff one, exact sample times and switching times, zero-crossing detection,
-  algebraic-loop detection and linearisation. Diagrams are JSON files; there is no graphical editor
-  for them yet. Reference, verification and limits: [`docs/blocks.md`](docs/blocks.md).
+  algebraic-loop detection and linearisation. Diagrams are JSON files, edited in the app's block
+  workspace or written by hand. Reference, verification and limits: [`docs/blocks.md`](docs/blocks.md).
 * **CLI** (`abaco`): `eval`, `run FILE`, `script FILE`, `sim MODEL.json`, `repl`, `functions`,
   `units list`, `units convert`, `--json`, `--digits N`.
 * **Desktop app** (`abaco-app`, egui with `nodalia-theme`): a document of cells. A maths cell has its
@@ -59,9 +59,15 @@ error: cannot add m and s (length and time)
   can turn with the mouse. The interpreter runs on a thread of its own, so a long script never freezes
   the window. A linear system whose answer is mostly rounding noise (`A\b` with a nearly singular `A`)
   warns with its `RCOND`.
+  A third workspace (View ▸ Block diagrams, `Ctrl+Shift+L`; Blocks ▸ Open the example diagram) edits
+  and runs Ábaco Blocks diagrams: a library of about 60 blocks (click one to add it), a canvas where
+  blocks are dragged, wired from an output port to an input port, panned and zoomed, an inspector for
+  a block's name and parameters (or the solver settings when nothing is selected), and the plots of
+  the last run (`F6` runs it, `Shift+F6` stops it). Simulations run on a thread of their own and can be
+  stopped. Diagrams open and save as JSON, the same files `abaco sim` reads.
 
 What does not exist yet (see [`ROADMAP.md`](ROADMAP.md)): undo and redo in the app, exporting figures, symbolic
-computation, a graphical block-diagram editor and file I/O from scripts (`readmatrix`, `save`, `load`).
+computation, undo in the block editor and file I/O from scripts (`readmatrix`, `save`, `load`).
 Nothing here is validated for safety-critical use.
 
 ## Install

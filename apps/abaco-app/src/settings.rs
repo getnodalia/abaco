@@ -30,13 +30,14 @@ pub enum SidePanel {
     Document,
 }
 
-/// What the window shows: the maths document or the script workspace.
+/// What the window shows: the maths document, the script workspace or the block diagrams.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Workspace {
     #[default]
     Document,
     Script,
+    Blocks,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

@@ -34,6 +34,11 @@ pub enum Cmd {
     ClearWorkspace,
     ClearCommandWindow,
     CloseFigures,
+    ShowBlocks,
+    RunBlocks,
+    StopBlocks,
+    DeleteBlock,
+    BlocksExample,
     CommandSearch,
     Preferences,
     KeyboardShortcuts,
@@ -47,15 +52,17 @@ pub enum Category {
     Cells,
     View,
     Script,
+    Blocks,
     Help,
 }
 
 impl Category {
-    pub const ALL: [Category; 5] = [
+    pub const ALL: [Category; 6] = [
         Category::File,
         Category::Cells,
         Category::View,
         Category::Script,
+        Category::Blocks,
         Category::Help,
     ];
 
@@ -65,6 +72,7 @@ impl Category {
             Category::Cells => "Cells",
             Category::View => "View",
             Category::Script => "Script",
+            Category::Blocks => "Blocks",
             Category::Help => "Help",
         }
     }
@@ -84,7 +92,7 @@ const fn shortcut(command: bool, shift: bool, alt: bool, key: Key) -> Option<Key
 }
 
 impl Cmd {
-    pub const ALL: [Cmd; 30] = [
+    pub const ALL: [Cmd; 35] = [
         Cmd::NewBlank,
         Cmd::OpenSample,
         Cmd::Open,
@@ -111,6 +119,11 @@ impl Cmd {
         Cmd::ClearWorkspace,
         Cmd::ClearCommandWindow,
         Cmd::CloseFigures,
+        Cmd::ShowBlocks,
+        Cmd::RunBlocks,
+        Cmd::StopBlocks,
+        Cmd::DeleteBlock,
+        Cmd::BlocksExample,
         Cmd::CommandSearch,
         Cmd::Preferences,
         Cmd::KeyboardShortcuts,
@@ -146,6 +159,11 @@ impl Cmd {
             Cmd::ClearWorkspace => "script.clear-workspace",
             Cmd::ClearCommandWindow => "script.clear-window",
             Cmd::CloseFigures => "script.close-figures",
+            Cmd::ShowBlocks => "view.blocks",
+            Cmd::RunBlocks => "blocks.run",
+            Cmd::StopBlocks => "blocks.stop",
+            Cmd::DeleteBlock => "blocks.delete",
+            Cmd::BlocksExample => "blocks.example",
             Cmd::CommandSearch => "app.search",
             Cmd::Preferences => "app.preferences",
             Cmd::KeyboardShortcuts => "app.shortcuts",
@@ -186,6 +204,11 @@ impl Cmd {
             Cmd::ClearWorkspace => "Clear the variables",
             Cmd::ClearCommandWindow => "Clear the command window",
             Cmd::CloseFigures => "Close all figures",
+            Cmd::ShowBlocks => "Block diagrams",
+            Cmd::RunBlocks => "Run the simulation",
+            Cmd::StopBlocks => "Stop the simulation",
+            Cmd::DeleteBlock => "Delete the selection",
+            Cmd::BlocksExample => "Open the example diagram",
             Cmd::CommandSearch => "Search commands",
             Cmd::Preferences => "Preferences",
             Cmd::KeyboardShortcuts => "Keyboard shortcuts",
@@ -215,6 +238,7 @@ impl Cmd {
             | Cmd::ShowDocumentSettings
             | Cmd::ShowDocument
             | Cmd::ShowScript
+            | Cmd::ShowBlocks
             | Cmd::ToggleWorkspacePanel
             | Cmd::ToggleFiguresPanel => Category::View,
             Cmd::RunScript
@@ -222,6 +246,9 @@ impl Cmd {
             | Cmd::ClearWorkspace
             | Cmd::ClearCommandWindow
             | Cmd::CloseFigures => Category::Script,
+            Cmd::RunBlocks | Cmd::StopBlocks | Cmd::DeleteBlock | Cmd::BlocksExample => {
+                Category::Blocks
+            }
             Cmd::CommandSearch | Cmd::Preferences | Cmd::KeyboardShortcuts | Cmd::About => {
                 Category::Help
             }
@@ -257,6 +284,11 @@ impl Cmd {
             Cmd::ClearWorkspace => "eraser",
             Cmd::ClearCommandWindow => "brush-remove",
             Cmd::CloseFigures => "window-close",
+            Cmd::ShowBlocks => "blocks",
+            Cmd::RunBlocks => "run",
+            Cmd::StopBlocks => "stop",
+            Cmd::DeleteBlock => "delete",
+            Cmd::BlocksExample => "book",
             Cmd::CommandSearch => "search",
             Cmd::Preferences => "settings",
             Cmd::KeyboardShortcuts => "keyboard",
@@ -283,6 +315,9 @@ impl Cmd {
             Cmd::ShowScript => shortcut(true, false, false, Key::J),
             Cmd::ShowDocument => shortcut(true, true, false, Key::J),
             Cmd::RunScript => shortcut(false, false, false, Key::F5),
+            Cmd::ShowBlocks => shortcut(true, true, false, Key::L),
+            Cmd::RunBlocks => shortcut(false, false, false, Key::F6),
+            Cmd::StopBlocks => shortcut(false, true, false, Key::F6),
             Cmd::StopScript => shortcut(true, false, false, Key::Period),
             Cmd::CommandSearch => shortcut(true, false, false, Key::K),
             Cmd::Preferences => shortcut(true, false, false, Key::Comma),

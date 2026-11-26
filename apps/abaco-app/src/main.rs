@@ -18,6 +18,7 @@
 )]
 
 mod app;
+mod blocks_ui;
 mod cells;
 mod chrome;
 mod figure;

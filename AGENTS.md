@@ -29,6 +29,8 @@ what does not exist yet; planned features are never described as existing.
 | `apps/abaco-cli` | Headless `abaco` command: `eval`, `run`, `script`, `sim`, `repl` |
 | `apps/abaco` | The egui app |
 
+`apps/abaco` also holds the block workspace: `blocks/` (the diagram session and its worker thread, testable without a display) and `blocks_ui.rs` (library, canvas, inspector, plots).
+
 Dependencies point down: engines never use egui, eframe or winit, and no engine blocks on I/O it
 was not asked to do. Anything a headless client (the CLI, a script, another Nodalia app) also needs
 belongs in an engine crate, not in the app. A feature of a kind not listed above gets its own

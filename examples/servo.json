@@ -7,7 +7,7 @@
     "step": null,
     "max_step": null,
     "rtol": 0.001,
-    "atol": 1e-6
+    "atol": 1e-06
   },
   "blocks": [
     {
@@ -15,57 +15,97 @@
       "type": "Step",
       "time": 1.0,
       "before": 0.0,
-      "after": 1.0
+      "after": 1.0,
+      "position": [
+        0,
+        40
+      ]
     },
     {
       "name": "error",
       "type": "Sum",
-      "signs": "+-"
+      "signs": "+-",
+      "position": [
+        150,
+        40
+      ]
     },
     {
       "name": "kp",
       "type": "Gain",
-      "gain": 20.0
+      "gain": 20.0,
+      "position": [
+        300,
+        0
+      ]
     },
     {
       "name": "kd",
       "type": "Gain",
-      "gain": 2.0
+      "gain": 2.0,
+      "position": [
+        300,
+        120
+      ]
     },
     {
       "name": "command",
       "type": "Sum",
-      "signs": "+-"
+      "signs": "+-",
+      "position": [
+        450,
+        40
+      ]
     },
     {
       "name": "limit",
       "type": "Saturation",
       "lower": -5.0,
-      "upper": 5.0
+      "upper": 5.0,
+      "position": [
+        600,
+        40
+      ]
     },
     {
       "name": "speed",
       "type": "Integrator",
       "initial": 0.0,
       "lower": null,
-      "upper": null
+      "upper": null,
+      "position": [
+        750,
+        40
+      ]
     },
     {
       "name": "position",
       "type": "Integrator",
       "initial": 0.0,
       "lower": null,
-      "upper": null
+      "upper": null,
+      "position": [
+        900,
+        40
+      ]
     },
     {
       "name": "Position",
       "type": "Scope",
-      "inputs": 1
+      "inputs": 1,
+      "position": [
+        1050,
+        0
+      ]
     },
     {
       "name": "Torque",
       "type": "Scope",
-      "inputs": 1
+      "inputs": 1,
+      "position": [
+        750,
+        150
+      ]
     }
   ],
   "lines": [

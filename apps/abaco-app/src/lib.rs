@@ -18,10 +18,12 @@
 //! * [`workbook`]: the view-model the window reads, and its reducer;
 //! * [`catalog`]: the units and constants the side panel lists, and the conversion it offers;
 //! * [`script`]: Ábaco Script on a worker thread, and what the script workspace shows;
+//! * [`blocks`]: block diagrams: the diagram being edited and Ábaco Blocks on a worker thread;
 //! * [`sample`]: the document a first launch opens;
 //! * [`settings`]: the preferences file;
 //! * [`i18n`]: Spanish and English.
 
+pub mod blocks;
 pub mod catalog;
 pub mod commands;
 pub mod engine;

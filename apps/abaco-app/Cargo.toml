@@ -18,6 +18,7 @@ name = "abaco-app"
 path = "src/main.rs"
 
 [dependencies]
+abaco-blocks = { path = "../../crates/abaco-blocks" }
 abaco-doc = { path = "../../crates/abaco-doc" }
 abaco-expr = { path = "../../crates/abaco-expr" }
 abaco-script = { path = "../../crates/abaco-script" }
