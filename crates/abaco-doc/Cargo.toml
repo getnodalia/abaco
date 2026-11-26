@@ -1,0 +1,22 @@
+[package]
+name = "abaco-doc"
+description = "The Ábaco maths document: ordered cells, dependency graph, incremental reactive evaluation and the .abaco file format."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+abaco-expr = { path = "../abaco-expr" }
+nodalia-units = { path = "../nodalia-units" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[lints]
+workspace = true
