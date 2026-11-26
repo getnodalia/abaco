@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! What each command does.
 
-use crate::args::{Command, Options, ScriptSource};
+use crate::args::{Command, Options, ScriptSource, SimArgs};
 use crate::{err, out};
+use abaco_blocks::{Model, SimResult};
 use abaco_doc::{error_json, CellError, CellKind, Document, DEFAULT_SIGNIFICANT_DIGITS};
 use abaco_expr::{eval_str, Env};
 use abaco_script::{Event, Interp, Limits};
@@ -15,6 +16,7 @@ pub fn run(cmd: &Command) -> ExitCode {
         Command::Eval(expr, o) => eval(expr, *o),
         Command::Run(file, o) => run_file(file, *o),
         Command::Script(src, o) => script(src, *o),
+        Command::Sim(a, o) => sim(a, *o),
         Command::Repl => repl(),
         Command::Functions(o) => functions(*o),
         Command::UnitsList(o) => units_list(*o),
@@ -348,4 +350,187 @@ fn functions(o: Options) -> ExitCode {
         out(&names.join("\n"));
     }
     ExitCode::SUCCESS
+}
+
+/// Formats a number with the requested significant digits.
+fn sig(v: f64, digits: usize) -> String {
+    if !v.is_finite() {
+        return v.to_string();
+    }
+    if v == 0.0 {
+        return "0".to_string();
+    }
+    let decimals = digits.saturating_sub(1);
+    let text = format!("{v:.decimals$e}");
+    // Plain notation when the exponent is small, scientific otherwise.
+    match text
+        .split_once('e')
+        .and_then(|(m, e)| e.parse::<i32>().ok().map(|e| (m, e)))
+    {
+        Some((_, e)) if (-4..=6).contains(&e) => {
+            let places = (digits as i32 - 1 - e).max(0) as usize;
+            let plain = format!("{v:.places$}");
+            if plain.contains('.') {
+                plain
+                    .trim_end_matches('0')
+                    .trim_end_matches('.')
+                    .to_string()
+            } else {
+                plain
+            }
+        }
+        _ => text,
+    }
+}
+
+fn csv_text(r: &SimResult) -> String {
+    let mut head = vec!["time".to_string()];
+    for s in &r.signals {
+        if s.width <= 1 {
+            head.push(s.name.clone());
+        } else {
+            head.extend((1..=s.width).map(|k| format!("{}[{k}]", s.name)));
+        }
+    }
+    let quote = |h: &str| {
+        if h.contains([',', '"', '\n']) {
+            format!("\"{}\"", h.replace('"', "\"\""))
+        } else {
+            h.to_string()
+        }
+    };
+    let mut text = head.iter().map(|h| quote(h)).collect::<Vec<_>>().join(",");
+    text.push('\n');
+    for (i, t) in r.time.iter().enumerate() {
+        let mut row = vec![format!("{t:e}")];
+        for s in &r.signals {
+            row.extend(s.row(i).iter().map(|v| format!("{v:e}")));
+        }
+        text.push_str(&row.join(","));
+        text.push('\n');
+    }
+    text
+}
+
+fn sim(a: &SimArgs, o: Options) -> ExitCode {
+    let text = match std::fs::read_to_string(&a.file) {
+        Ok(t) => t,
+        Err(e) => {
+            err(&format!("error: cannot read `{}`: {e}", a.file));
+            return ExitCode::from(2);
+        }
+    };
+    let mut model = match Model::from_json(&text) {
+        Ok(m) => m,
+        Err(e) => {
+            err(&format!("error: {}: {e}", a.file));
+            return ExitCode::from(2);
+        }
+    };
+    if let Some(stop) = a.stop {
+        model.solver.stop_time = stop;
+    }
+    let r = match abaco_blocks::simulate(&model) {
+        Ok(r) => r,
+        Err(e) => {
+            if o.json {
+                out(&pretty(&json!({ "ok": false, "error": e.to_string() })));
+            } else {
+                err(&format!("error: {e}"));
+            }
+            return ExitCode::from(1);
+        }
+    };
+    if let Some(path) = &a.csv {
+        if let Err(e) = std::fs::write(path, csv_text(&r)) {
+            err(&format!("error: cannot write `{path}`: {e}"));
+            return ExitCode::from(2);
+        }
+    }
+    if o.json {
+        let signals: Vec<Json> = r
+            .signals
+            .iter()
+            .map(|s| json!({ "name": s.name, "width": s.width, "data": s.data }))
+            .collect();
+        out(&pretty(&json!({
+            "ok": true,
+            "model": (if model.name.is_empty() { "model" } else { model.name.as_str() }),
+            "time": r.time,
+            "signals": signals,
+            "stopped_by": r.stopped_by,
+            "stats": {
+                "steps": r.stats.steps,
+                "rejected": r.stats.rejected,
+                "zero_crossings": r.stats.zero_crossings,
+                "evaluations": r.stats.evaluations,
+            },
+            "method": format!("{:?}", model.solver.method),
+        })));
+        return ExitCode::SUCCESS;
+    }
+    let digits = o.digits.unwrap_or(DEFAULT_SIGNIFICANT_DIGITS);
+    let t_end = r.time.last().copied().unwrap_or(0.0);
+    out(&format!(
+        "{}: {:?}, t = 0 … {} ({} samples)",
+        (if model.name.is_empty() {
+            "model"
+        } else {
+            model.name.as_str()
+        }),
+        model.solver.method,
+        sig(t_end, digits),
+        r.time.len()
+    ));
+    if let Some(b) = &r.stopped_by {
+        out(&format!("stopped by {b}"));
+    }
+    for s in &r.signals {
+        let last = r.time.len().checked_sub(1).map(|i| s.row(i)).unwrap_or(&[]);
+        let shown: Vec<String> = last.iter().take(8).map(|v| sig(*v, digits)).collect();
+        let more = if last.len() > 8 { " …" } else { "" };
+        out(&format!("  {} = [{}]{more}", s.name, shown.join(", ")));
+    }
+    out(&format!(
+        "steps {}, rejected {}, zero crossings {}, evaluations {}",
+        r.stats.steps, r.stats.rejected, r.stats.zero_crossings, r.stats.evaluations
+    ));
+    ExitCode::SUCCESS
+}
+
+#[cfg(test)]
+mod sim_tests {
+    use super::*;
+    use abaco_blocks::{BlockKind, Model};
+
+    #[test]
+    fn significant_digits_switch_to_scientific_outside_a_readable_range() {
+        assert_eq!(sig(0.0, 6), "0");
+        assert_eq!(sig(98.1, 6), "98.1");
+        assert_eq!(sig(1.0 / 3.0, 4), "0.3333");
+        assert_eq!(sig(-2.5, 6), "-2.5");
+        assert_eq!(sig(1.0e8, 3), "1.00e8");
+        assert_eq!(sig(1.5e-7, 3), "1.50e-7");
+        assert_eq!(sig(f64::INFINITY, 6), "inf");
+    }
+
+    #[test]
+    fn csv_has_a_header_with_vector_elements_and_one_row_per_sample() {
+        let mut m = Model::new("csv");
+        m.solver.stop_time = 1.0;
+        m.add(
+            "v",
+            BlockKind::Constant {
+                value: vec![1.0, 2.0],
+            },
+        )
+        .unwrap();
+        m.add("Out, 1", BlockKind::Scope { inputs: 1 }).unwrap();
+        m.connect(("v", 0), ("Out, 1", 0));
+        let r = abaco_blocks::simulate(&m).unwrap();
+        let text = csv_text(&r);
+        let mut lines = text.lines();
+        assert_eq!(lines.next(), Some("time,\"Out, 1[1]\",\"Out, 1[2]\""));
+        assert_eq!(lines.count(), r.time.len());
+    }
 }

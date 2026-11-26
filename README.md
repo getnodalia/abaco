@@ -35,8 +35,14 @@ error: cannot add m and s (length and time)
   more than 350 built-in functions (linear algebra with SVD, QR, LU, Cholesky, `expm`, polynomials,
   integration, `fzero`, statistics, sorting and set operations, plot commands that record figures).
   Reference and limits: [`docs/script.md`](docs/script.md).
-* **CLI** (`abaco`): `eval`, `run FILE`, `script FILE`, `repl`, `functions`, `units list`,
-  `units convert`, `--json`, `--digits N`.
+* **Ábaco Blocks** (`abaco-blocks`): block diagrams in the spirit of Simulink, with solvers of their
+  own: about 60 blocks (sources, scopes, math, routing, subsystems, continuous and discrete
+  dynamics, transfer functions, state space, PID, transport delay), fixed-step and variable-step
+  methods including a stiff one, exact sample times and switching times, zero-crossing detection,
+  algebraic-loop detection and linearisation. Diagrams are JSON files; there is no graphical editor
+  for them yet. Reference, verification and limits: [`docs/blocks.md`](docs/blocks.md).
+* **CLI** (`abaco`): `eval`, `run FILE`, `script FILE`, `sim MODEL.json`, `repl`, `functions`,
+  `units list`, `units convert`, `--json`, `--digits N`.
 * **Desktop app** (`abaco-app`, egui with `nodalia-theme`): a document of cells. A maths cell has its
   input (coloured as you type) with its result and unit beside it; an error shows in place with
   line, column and the offending line quoted. Add, duplicate, delete and reorder cells; an outline of
@@ -55,7 +61,7 @@ error: cannot add m and s (length and time)
   warns with its `RCOND`.
 
 What does not exist yet (see [`ROADMAP.md`](ROADMAP.md)): undo and redo in the app, exporting figures, symbolic
-computation, block-diagram simulation and file I/O from scripts (`readmatrix`, `save`, `load`).
+computation, a graphical block-diagram editor and file I/O from scripts (`readmatrix`, `save`, `load`).
 Nothing here is validated for safety-critical use.
 
 ## Install
@@ -91,6 +97,7 @@ cargo run -p abaco-app                      # the app (needs libxkbcommon-x11-0 
 | `crates/nodalia-numerics` | Dense linear algebra, roots, quadrature, ODEs. Shared with other Nodalia apps |
 | `crates/abaco-expr` | Lexer, parser and evaluator of the units-aware expression language |
 | `crates/abaco-script` | Ábaco Script: the matrix language, its interpreter and function library |
+| `crates/abaco-blocks` | Ábaco Blocks: block diagrams, their compiler and solvers |
 | `crates/abaco-doc` | The reactive document and the `.abaco` format |
 | `apps/abaco-cli` | The `abaco` command |
 | `apps/abaco-app` | The `abaco-app` window: view-model and engine thread in the library, drawing in the binary |

@@ -30,6 +30,8 @@ pub enum Command {
     Run(String, Options),
     /// `abaco script <file>` or `abaco script --code <source>`.
     Script(ScriptSource, Options),
+    /// `abaco sim <model.json>`.
+    Sim(SimArgs, Options),
     /// `abaco repl`.
     Repl,
     /// `abaco functions`.
@@ -38,6 +40,17 @@ pub enum Command {
     UnitsList(Options),
     /// `abaco units convert <quantity> <unit>`.
     UnitsConvert(String, String, Options),
+}
+
+/// What `abaco sim` was asked to run.
+#[derive(Debug, PartialEq, Clone)]
+pub struct SimArgs {
+    /// The block-diagram file (JSON).
+    pub file: String,
+    /// `--stop T`: overrides the model's stop time.
+    pub stop: Option<f64>,
+    /// `--csv FILE`: also write every recorded signal there.
+    pub csv: Option<String>,
 }
 
 /// Where a script's source comes from.
@@ -49,10 +62,11 @@ pub enum ScriptSource {
     Code(String),
 }
 
-const COMMANDS: [&str; 7] = [
+const COMMANDS: [&str; 8] = [
     "eval",
     "run",
     "script",
+    "sim",
     "repl",
     "functions",
     "units",
@@ -67,6 +81,8 @@ pub fn parse(argv: &[String]) -> Result<Parsed, String> {
     let mut version = false;
     let mut only_positional = false;
     let mut code: Option<String> = None;
+    let mut stop: Option<f64> = None;
+    let mut csv: Option<String> = None;
     let mut it = argv.iter();
     while let Some(a) = it.next() {
         if only_positional {
@@ -82,6 +98,22 @@ pub fn parse(argv: &[String]) -> Result<Parsed, String> {
                 code = Some(
                     it.next()
                         .ok_or_else(|| "`--code` needs the script text, in quotes".to_string())?
+                        .clone(),
+                );
+            }
+            "--stop" => {
+                let v = it.next().ok_or_else(|| {
+                    "`--stop` needs the stop time, for example: --stop 10".to_string()
+                })?;
+                stop = Some(match v.parse::<f64>() {
+                    Ok(t) if t.is_finite() => t,
+                    _ => return Err(format!("`--stop` needs a finite number, got `{v}`")),
+                });
+            }
+            "--csv" => {
+                csv = Some(
+                    it.next()
+                        .ok_or_else(|| "`--csv` needs a file name".to_string())?
                         .clone(),
                 );
             }
@@ -153,6 +185,22 @@ pub fn parse(argv: &[String]) -> Result<Parsed, String> {
                     .into(),
             ),
         },
+        Some("sim") => {
+            let file = rest
+                .next()
+                .ok_or("`sim` needs a model file, for example: abaco sim servo.json")?;
+            if rest.next().is_some() {
+                return Err("`sim` takes one model file".into());
+            }
+            Ok(Parsed::Command(Command::Sim(
+                SimArgs {
+                    file: file.clone(),
+                    stop,
+                    csv,
+                },
+                opts,
+            )))
+        }
         Some("repl") => {
             if rest.next().is_some() {
                 return Err("`repl` takes no arguments".into());
@@ -228,6 +276,7 @@ USAGE
     abaco eval '<expression>' [--json] [--digits N]
     abaco run <file.abaco> [--json] [--digits N]
     abaco script <file.m | -> | --code '<source>'
+    abaco sim <model.json> [--stop T] [--csv out.csv] [--json] [--digits N]
     abaco repl
     abaco functions [--json]
     abaco units list [--json]
@@ -276,6 +325,17 @@ standard output, warnings to standard error. `-` reads the script from standard 
 
 On an error the message, line and column go to standard error and the exit code is 1."
             .to_string(),
+        Some("sim") => "\
+abaco sim <model.json> [--stop T] [--csv out.csv] [--json] [--digits N]
+
+Simulates a block diagram (Ábaco Blocks, JSON) with the model's own solver and prints the final
+value of every logged signal (scopes, outports, ToWorkspace) with the solver's statistics.
+--stop T overrides the stop time; --csv writes time and every signal to a file; --json prints
+the whole run (times and samples). The exit code is 1 when the model cannot be compiled or the
+run fails (algebraic loop, a non-finite signal, a step that cannot be taken), with the block named.
+
+    abaco sim servo.json --stop 5 --csv servo.csv"
+            .to_string(),
         Some("repl") => "\
 abaco repl
 
@@ -305,6 +365,29 @@ mod tests {
 
     fn p(args: &[&str]) -> Result<Parsed, String> {
         parse(&args.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+    }
+
+    #[test]
+    fn parses_sim_with_its_options() {
+        assert_eq!(
+            p(&["sim", "m.json", "--stop", "2.5", "--csv", "o.csv", "--json"]),
+            Ok(Parsed::Command(Command::Sim(
+                SimArgs {
+                    file: "m.json".into(),
+                    stop: Some(2.5),
+                    csv: Some("o.csv".into())
+                },
+                Options {
+                    json: true,
+                    digits: None
+                }
+            )))
+        );
+        assert!(p(&["sim"]).is_err());
+        assert!(p(&["sim", "a.json", "b.json"]).is_err());
+        assert!(p(&["sim", "a.json", "--stop", "soon"]).is_err());
+        assert!(p(&["sim", "a.json", "--stop", "inf"]).is_err());
+        assert!(p(&["sim", "a.json", "--csv"]).is_err());
     }
 
     #[test]

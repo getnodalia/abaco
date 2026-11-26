@@ -20,7 +20,7 @@ functional, functional, validated (against analytic or published references), pr
 | Optimisation | Functional in Ábaco Script (Nelder–Mead, BFGS, Brent, Levenberg–Marquardt, simplex `linprog`); no constrained nonlinear solvers or quadratic programming yet |
 | Signals and filters | Functional (FFT of any length, `filter`, `filtfilt`, Butterworth/Chebyshev/FIR design, windows, spectra helpers) |
 | Control systems (`tf`/`zpk`/`ss`, step/bode/nyquist/margin/rlocus, `place`, `lqr`, Riccati and Lyapunov, `c2d`) | Functional in the library (`nodalia-numerics::control`) and in Ábaco Script; verified against closed forms (first-order step, second-order overshoot, gain margin 6 of 1/(s(s+1)(s+2)), LQR of a double integrator, ZOH, Riccati/Lyapunov residuals); SISO interconnection only, no operator overloading |
-| Block-diagram modelling and simulation (Simulink-class) | Planned |
+| Block-diagram modelling and simulation (Simulink-class) | Functional in the library and CLI (`abaco-blocks`, `abaco sim`): about 60 blocks, fixed and variable step solvers including a stiff one, exact discrete and switching events, zero-crossing detection, subsystems, linearisation; verified against analytic solutions and fuzzed; no graphical editor in the app yet, no Stateflow, physical networks, code generation or `.slx` import (`docs/blocks.md`) |
 | ODE/DAE solver suite (`ode45`, stiff solvers, events) | Partially functional: Dormand–Prince 5(4) and Rosenbrock (2,3) with dense output, events, backward integration and a constant mass matrix (index-1 DAEs); no variable-order BDF/Adams, no `ode15i`, no delay equations |
 | File I/O (CSV, MAT-like) | Planned |
 
@@ -34,8 +34,8 @@ MATLAB and Simulink coverage is being built in increments (each ends in a pull r
    statistics, the ODE/DAE suite, symbolic basics, file I/O.
 3. **App** (script workspace done: command window, variable browser, script editor, 2-D and 3-D plot
    drawing, English and Spanish; undo and redo in the document and figure export still open).
-4. **Block diagrams**: a Simulink-style modeller with its own solvers (sources, scopes, math,
-   continuous and discrete blocks, transfer functions, state space, PID, subsystems).
+4. **Block diagrams**: a Simulink-style modeller with its own solvers (engine and `abaco sim` done;
+   the graphical editor in the app is next).
 
 Also: selection of several cells, drag to reorder, running on macOS and Windows; symbolic
 differentiation and simplification.

@@ -3,12 +3,12 @@
 ```text
 nodalia-units  nodalia-numerics      shared engines, no app dependencies
         \            /
-    abaco-expr    abaco-script           languages: the units-aware expression language;
-        |              |                 the MATLAB-class matrix language (scripts, functions)
-        |              |
-    abaco-doc          |                 document, dependency graph, .abaco format
-        \\            /
-   abaco-cli   abaco-app                 front ends
+    abaco-expr    abaco-script   abaco-blocks    languages and models: the units-aware expression
+        |              |             |         language; the MATLAB-class matrix language;
+        |              |             |         Simulink-class block diagrams
+    abaco-doc          |             |         document, dependency graph, .abaco format
+        \\            |            /
+          abaco-cli   abaco-app              front ends
 ```
 
 Rules:
