@@ -44,6 +44,23 @@ What does not exist yet (see [`ROADMAP.md`](ROADMAP.md)): undo and redo in the a
 statistics, control-systems and signal tools, optimisation, scripting beyond the expression language.
 Nothing here is validated for safety-critical use.
 
+## Install
+
+No release has been published yet. A release is made by merging a version bump with its notes
+(`docs/release-notes/vX.Y.Z.md`): the workflows in `.github/workflows/` then build these files and
+attach them to the GitHub release, where `abaco-X.Y.Z-<os>-<arch>` names each of them.
+
+| Platform | Files |
+|---|---|
+| Linux (x86_64) | `.AppImage`, `.deb`, `.rpm`, `.tar.gz` |
+| Windows (x64) | `.msi` (for one account or for everyone) and a `-portable.zip` |
+| macOS (universal) | `.dmg`, ad hoc signed and not notarized: open it with right click > Open |
+
+Every package installs the app as `abaco` and the command line as `abaco-cli`. The scripts that
+build them are in `packaging/`; the Linux ones have been run here, the macOS and Windows ones have
+not been run yet. Windows builds are unsigned and macOS builds are not notarized unless signing secrets are set, so
+SmartScreen and Gatekeeper warn the first time.
+
 ## Build and test
 
 ```bash
