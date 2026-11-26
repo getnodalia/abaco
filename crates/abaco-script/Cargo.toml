@@ -1,0 +1,20 @@
+[package]
+name = "abaco-script"
+description = "Ábaco Script: a matrix language with scripts, functions, control flow, cells, structs and a large numerical library."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+nodalia-numerics = { path = "../nodalia-numerics" }
+num-complex = { workspace = true }
+regex = "1"
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[lints]
+workspace = true

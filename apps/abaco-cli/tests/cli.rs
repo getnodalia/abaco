@@ -412,3 +412,79 @@ fn a_closed_pipe_is_not_a_crash() {
     let out = child.wait_with_output().unwrap();
     assert!(!String::from_utf8_lossy(&out.stderr).contains("panicked"));
 }
+
+fn abaco_with_stdin(args: &[&str], input: &str) -> Output {
+    use std::io::Write;
+    let mut child = Command::new(env!("CARGO_BIN_EXE_abaco"))
+        .args(args)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("the abaco binary runs");
+    child
+        .stdin
+        .take()
+        .expect("stdin is piped")
+        .write_all(input.as_bytes())
+        .unwrap();
+    child.wait_with_output().unwrap()
+}
+
+#[test]
+fn script_runs_code_and_files() {
+    let o = abaco(&["script", "--code", "A = [2 1; 1 2]; disp(round(eig(A)'))"]);
+    assert_eq!(code(&o), 0, "{}", stderr(&o));
+    assert_eq!(
+        stdout(&o).split_whitespace().collect::<Vec<_>>(),
+        ["1", "3"]
+    );
+    let f = temp_file(
+        "a.m",
+        "function y = sq(x)\n y = x^2;\nend\nprintf('%d\\n', sq(7))",
+    );
+    let o = abaco(&["script", f.to_str().unwrap()]);
+    assert_eq!(stdout(&o), "49\n");
+    let o = abaco_with_stdin(&["script", "-"], "x = 6 * 7");
+    assert_eq!(stdout(&o).trim(), "x = 42");
+}
+
+#[test]
+fn script_errors_name_the_line() {
+    let o = abaco(&["script", "--code", "x = 1;\ny = [1 2 3];\ny(7)"]);
+    assert_eq!(code(&o), 1);
+    assert!(stderr(&o).contains("line 3"), "{}", stderr(&o));
+    let o = abaco(&["script", "/no/such/file.m"]);
+    assert_eq!(code(&o), 2);
+}
+
+#[test]
+fn deep_recursion_is_an_error_not_a_crash() {
+    let o = abaco(&[
+        "script",
+        "--code",
+        "function r = f(n)\n r = f(n + 1);\nend\nf(0)",
+    ]);
+    assert_eq!(code(&o), 1);
+    assert!(stderr(&o).contains("nested"), "{}", stderr(&o));
+}
+
+#[test]
+fn repl_keeps_a_workspace_and_waits_for_end() {
+    let o = abaco_with_stdin(
+        &["repl"],
+        "x = 3;\nfor k = 1:2\n  x = x + k;\nend\nx\nundefined_name\ny = x * 2\n",
+    );
+    let text = stdout(&o);
+    assert!(text.contains("x = 6"), "{text}");
+    assert!(text.contains("y = 12"), "{text}");
+    assert!(stderr(&o).contains("undefined_name"), "{}", stderr(&o));
+}
+
+#[test]
+fn functions_lists_the_library() {
+    let o = abaco(&["functions"]);
+    let text = stdout(&o);
+    assert!(text.lines().any(|l| l == "eig") && text.lines().any(|l| l == "plot"));
+    assert!(text.lines().count() > 300, "{}", text.lines().count());
+}

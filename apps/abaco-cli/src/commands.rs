@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! What each command does.
 
-use crate::args::{Command, Options};
+use crate::args::{Command, Options, ScriptSource};
 use crate::{err, out};
 use abaco_doc::{error_json, CellError, CellKind, Document, DEFAULT_SIGNIFICANT_DIGITS};
 use abaco_expr::{eval_str, Env};
+use abaco_script::{Event, Interp, Limits};
 use nodalia_units::{registry, Quantity, Unit};
 use serde_json::{json, Value as Json};
 use std::process::ExitCode;
@@ -13,6 +14,9 @@ pub fn run(cmd: &Command) -> ExitCode {
     match cmd {
         Command::Eval(expr, o) => eval(expr, *o),
         Command::Run(file, o) => run_file(file, *o),
+        Command::Script(src, o) => script(src, *o),
+        Command::Repl => repl(),
+        Command::Functions(o) => functions(*o),
         Command::UnitsList(o) => units_list(*o),
         Command::UnitsConvert(q, u, o) => units_convert(q, u, *o),
     }
@@ -222,4 +226,126 @@ fn units_convert(qty: &str, unit: &str, o: Options) -> ExitCode {
             ExitCode::from(1)
         }
     }
+}
+
+/// Scripts run on a thread with a large stack so deep recursion ends in an error, never a
+/// crash.
+const SCRIPT_STACK: usize = 256 * 1024 * 1024;
+
+fn script_limits() -> Limits {
+    Limits {
+        max_stack: SCRIPT_STACK / 4 * 3,
+        ..Limits::default()
+    }
+}
+
+/// Prints what a run produced: text to standard output, warnings to standard error.
+fn flush_events(interp: &mut Interp) {
+    for e in interp.take_events() {
+        match e {
+            Event::Text(t) => {
+                let mut stdout = std::io::stdout().lock();
+                let _ = std::io::Write::write_all(&mut stdout, t.as_bytes());
+            }
+            Event::Warning(w) => err(&format!("warning: {w}")),
+            Event::Figure(_) | Event::ClearScreen => {}
+        }
+    }
+}
+
+fn read_script(src: &ScriptSource) -> Result<String, String> {
+    match src {
+        ScriptSource::Code(code) => Ok(code.clone()),
+        ScriptSource::File(name) if name == "-" => {
+            let mut text = String::new();
+            std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)
+                .map_err(|e| format!("cannot read standard input: {e}"))?;
+            Ok(text)
+        }
+        ScriptSource::File(name) => {
+            std::fs::read_to_string(name).map_err(|e| format!("cannot read `{name}`: {e}"))
+        }
+    }
+}
+
+fn script(src: &ScriptSource, _o: Options) -> ExitCode {
+    let text = match read_script(src) {
+        Ok(t) => t,
+        Err(e) => {
+            err(&format!("error: {e}"));
+            return ExitCode::from(2);
+        }
+    };
+    let worker = std::thread::Builder::new()
+        .stack_size(SCRIPT_STACK)
+        .spawn(move || {
+            let mut interp = Interp::with_limits(script_limits());
+            let result = interp.run(&text);
+            flush_events(&mut interp);
+            match result {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    err(&e.render(&text));
+                    ExitCode::from(1)
+                }
+            }
+        });
+    match worker.map(std::thread::JoinHandle::join) {
+        Ok(Ok(code)) => code,
+        _ => {
+            err("error: the script could not be run");
+            ExitCode::from(2)
+        }
+    }
+}
+
+/// `true` when the parse error only says the input stopped too early, so more lines may
+/// complete the statement.
+fn incomplete(message: &str) -> bool {
+    message.contains("end of the input") || message.contains("never closed")
+}
+
+fn repl() -> ExitCode {
+    let worker = std::thread::Builder::new()
+        .stack_size(SCRIPT_STACK)
+        .spawn(|| {
+            let mut interp = Interp::with_limits(script_limits());
+            let mut pending = String::new();
+            for line in std::io::stdin().lines() {
+                let Ok(line) = line else { break };
+                pending.push_str(&line);
+                pending.push('\n');
+                match abaco_script::parser::parse(&pending) {
+                    Err(e) if incomplete(&e.message) => continue,
+                    Err(e) => {
+                        err(&e.render(&pending));
+                        pending.clear();
+                        continue;
+                    }
+                    Ok(_) => {}
+                }
+                if let Err(e) = interp.run(&pending) {
+                    flush_events(&mut interp);
+                    err(&e.render(&pending));
+                } else {
+                    flush_events(&mut interp);
+                }
+                pending.clear();
+            }
+            ExitCode::SUCCESS
+        });
+    match worker.map(std::thread::JoinHandle::join) {
+        Ok(Ok(code)) => code,
+        _ => ExitCode::from(2),
+    }
+}
+
+fn functions(o: Options) -> ExitCode {
+    let names = abaco_script::builtins::names();
+    if o.json {
+        out(&pretty(&json!(names)));
+    } else {
+        out(&names.join("\n"));
+    }
+    ExitCode::SUCCESS
 }

@@ -30,6 +30,7 @@ version = "0.2.0-dev"
 dependencies = [
  "abaco-doc",
  "abaco-expr",
+ "abaco-script",
  "nodalia-units",
  "serde_json",
 ]
@@ -56,6 +57,16 @@ dependencies = [
  "proptest",
  "serde_json",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "abaco-script"
+version = "0.2.0-dev"
+dependencies = [
+ "nodalia-numerics",
+ "num-complex",
+ "proptest",
+ "regex",
 ]
 
 [[package]]
@@ -2623,6 +2634,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "580c875845b41ecb1564ad1ae4703044cef774145e3d7a94dc2b3fa7c97868fd"
 dependencies = [
  "bitflags 2.13.2",
+]
+
+[[package]]
+name = "regex"
+version = "1.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9807af0e638c12e753aa1b4e601791bf2a8f71274023c8bbeec12fc149950857"
+dependencies = [
+ "aho-corasick",
+ "memchr",
+ "regex-automata",
+ "regex-syntax",
 ]
 
 [[package]]

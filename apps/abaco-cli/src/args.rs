@@ -28,13 +28,36 @@ pub enum Command {
     Eval(String, Options),
     /// `abaco run <file>`.
     Run(String, Options),
+    /// `abaco script <file>` or `abaco script --code <source>`.
+    Script(ScriptSource, Options),
+    /// `abaco repl`.
+    Repl,
+    /// `abaco functions`.
+    Functions(Options),
     /// `abaco units list`.
     UnitsList(Options),
     /// `abaco units convert <quantity> <unit>`.
     UnitsConvert(String, String, Options),
 }
 
-const COMMANDS: [&str; 4] = ["eval", "run", "units", "help"];
+/// Where a script's source comes from.
+#[derive(Debug, PartialEq, Clone)]
+pub enum ScriptSource {
+    /// A file; `-` reads standard input.
+    File(String),
+    /// Source text given on the command line.
+    Code(String),
+}
+
+const COMMANDS: [&str; 7] = [
+    "eval",
+    "run",
+    "script",
+    "repl",
+    "functions",
+    "units",
+    "help",
+];
 
 /// Parses the arguments after the program name.
 pub fn parse(argv: &[String]) -> Result<Parsed, String> {
@@ -43,6 +66,7 @@ pub fn parse(argv: &[String]) -> Result<Parsed, String> {
     let mut help = false;
     let mut version = false;
     let mut only_positional = false;
+    let mut code: Option<String> = None;
     let mut it = argv.iter();
     while let Some(a) = it.next() {
         if only_positional {
@@ -54,6 +78,13 @@ pub fn parse(argv: &[String]) -> Result<Parsed, String> {
             "--json" => opts.json = true,
             "-h" | "--help" => help = true,
             "-V" | "--version" => version = true,
+            "--code" => {
+                code = Some(
+                    it.next()
+                        .ok_or_else(|| "`--code` needs the script text, in quotes".to_string())?
+                        .clone(),
+                );
+            }
             "--digits" => {
                 let v = it
                     .next()
@@ -101,6 +132,38 @@ pub fn parse(argv: &[String]) -> Result<Parsed, String> {
                 return Err("`run` takes one file".into());
             }
             Ok(Parsed::Command(Command::Run(file.clone(), opts)))
+        }
+        Some("script") => match (code, rest.next()) {
+            (Some(src), None) => Ok(Parsed::Command(Command::Script(
+                ScriptSource::Code(src),
+                opts,
+            ))),
+            (Some(_), Some(_)) => Err("`script` takes a file or --code, not both".into()),
+            (None, Some(file)) => {
+                if rest.next().is_some() {
+                    return Err("`script` takes one file".into());
+                }
+                Ok(Parsed::Command(Command::Script(
+                    ScriptSource::File(file.clone()),
+                    opts,
+                )))
+            }
+            (None, None) => Err(
+                "`script` needs a file (or `-` for standard input) or --code '<source>', for example: abaco script analysis.m"
+                    .into(),
+            ),
+        },
+        Some("repl") => {
+            if rest.next().is_some() {
+                return Err("`repl` takes no arguments".into());
+            }
+            Ok(Parsed::Command(Command::Repl))
+        }
+        Some("functions") => {
+            if rest.next().is_some() {
+                return Err("`functions` takes no arguments".into());
+            }
+            Ok(Parsed::Command(Command::Functions(opts)))
         }
         Some("units") => match rest.next().map(String::as_str) {
             Some("list") => {
@@ -164,6 +227,9 @@ abaco: evaluate maths with units from the command line
 USAGE
     abaco eval '<expression>' [--json] [--digits N]
     abaco run <file.abaco> [--json] [--digits N]
+    abaco script <file.m | -> | --code '<source>'
+    abaco repl
+    abaco functions [--json]
     abaco units list [--json]
     abaco units convert '<quantity>' '<unit>' [--json] [--digits N]
 
@@ -197,6 +263,30 @@ abaco run <file.abaco> [--json] [--digits N]
 Evaluates every cell of a document in dependency order and prints each result. A cell that
 fails prints its error with the line and column inside the cell. The exit code is 1 when any
 cell has an error. With --json the whole report is printed as JSON."
+            .to_string(),
+        Some("script") => "\
+abaco script <file | -> 
+abaco script --code '<source>'
+
+Runs a script in Ábaco Script, the matrix language: variables, matrices, functions, loops,
+cells, structs and the numerical library (`abaco functions` lists it). Printed output goes to
+standard output, warnings to standard error. `-` reads the script from standard input.
+
+    abaco script --code 'A = [4 -2; 1 1]; disp(eig(A))'
+
+On an error the message, line and column go to standard error and the exit code is 1."
+            .to_string(),
+        Some("repl") => "\
+abaco repl
+
+Reads Ábaco Script statements from standard input and runs them in one workspace, showing the
+value of each statement that has no `;`. A block (`for`, `if`, `function`) is run once its `end`
+has been typed. Exit with Ctrl-D."
+            .to_string(),
+        Some("functions") => "\
+abaco functions [--json]
+
+Lists every built-in function of Ábaco Script, one per line (or as a JSON array)."
             .to_string(),
         Some("units") => "\
 abaco units list [--json]
@@ -253,6 +343,10 @@ mod tests {
         assert!(p(&["eval", "a", "b"]).is_err());
         assert!(p(&["run"]).is_err());
         assert!(p(&["units"]).is_err());
+        assert!(p(&["script"]).is_err());
+        assert!(p(&["script", "a.m", "b.m"]).is_err());
+        assert!(p(&["script", "a.m", "--code", "x"]).is_err());
+        assert!(p(&["repl", "x"]).is_err());
         assert!(p(&["units", "convert", "1 m"]).is_err());
         assert!(p(&["frobnicate"]).is_err());
         assert!(p(&["eval", "1", "--digits"]).is_err());
@@ -260,6 +354,25 @@ mod tests {
         assert!(p(&["eval", "1", "--digits", "x"]).is_err());
         assert!(p(&["eval", "1", "--digits=99"]).is_err());
         assert!(p(&["eval", "1", "--wat"]).is_err());
+    }
+
+    #[test]
+    fn parses_the_script_commands() {
+        assert_eq!(
+            p(&["script", "a.m"]),
+            Ok(Parsed::Command(Command::Script(
+                ScriptSource::File("a.m".into()),
+                Options::default()
+            )))
+        );
+        assert_eq!(
+            p(&["script", "--code", "x = 1"]),
+            Ok(Parsed::Command(Command::Script(
+                ScriptSource::Code("x = 1".into()),
+                Options::default()
+            )))
+        );
+        assert_eq!(p(&["repl"]), Ok(Parsed::Command(Command::Repl)));
     }
 
     #[test]
