@@ -1,0 +1,22 @@
+[package]
+name = "abaco-cli"
+description = "The headless `abaco` command: evaluate expressions, run maths documents and convert units."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+abaco-doc = { path = "../../crates/abaco-doc" }
+abaco-expr = { path = "../../crates/abaco-expr" }
+nodalia-units = { path = "../../crates/nodalia-units" }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "abaco"
+path = "src/main.rs"
