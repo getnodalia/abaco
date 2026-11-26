@@ -15,9 +15,11 @@ functional, functional, validated (against analytic or published references), pr
 | Plots | Recorded by the language (`plot`, `surf`, `hist`, …); drawing in the app is planned |
 | Symbolic computation | Planned |
 | Linear systems with sparse matrices, implicit ODE solvers | Planned (needed for stiff and large problems) |
-| Statistics, regression | Basic statistics and `polyfit` in Ábaco Script; the rest planned |
-| Optimisation, interpolation | Planned (next) |
-| Control systems, signals and filters | Planned (next) |
+| Statistics, distributions, special functions | Functional in Ábaco Script (moments, quantiles, moving windows, normal/t/χ²/F/binomial/Poisson, incomplete gamma and beta); regression beyond `polyfit` planned |
+| Interpolation | Functional (`interp1`, `interp2`, splines, PCHIP, piecewise polynomials) |
+| Optimisation | Planned (next) |
+| Signals and filters | Functional (FFT of any length, `filter`, `filtfilt`, Butterworth/Chebyshev/FIR design, windows, spectra helpers) |
+| Control systems | Planned (next) |
 | Block-diagram modelling and simulation (Simulink-class) | Planned |
 | ODE/DAE solver suite (`ode45`, stiff solvers, events) | Planned; a single explicit solver exists in `nodalia-numerics` |
 | File I/O (CSV, MAT-like) | Planned |

@@ -11,11 +11,14 @@ use std::sync::OnceLock;
 
 mod create;
 mod elementwise;
+mod interpolate;
 mod linear;
 mod numeric;
 mod plotting;
 mod poly;
 mod reduce;
+mod signal;
+mod stats;
 mod structs;
 mod system;
 mod text;
@@ -32,11 +35,14 @@ fn registry() -> &'static HashMap<&'static str, Bf> {
         for table in [
             create::TABLE,
             elementwise::TABLE,
+            interpolate::TABLE,
             linear::TABLE,
             numeric::TABLE,
             plotting::TABLE,
             poly::TABLE,
             reduce::TABLE,
+            signal::TABLE,
+            stats::TABLE,
             structs::TABLE,
             system::TABLE,
             text::TABLE,
@@ -69,7 +75,11 @@ pub fn call(
     nargout: usize,
 ) -> Result<Option<Vec<Value>>> {
     match lookup(name) {
-        Some(f) => f(interp, args, nargout).map(Some),
+        Some(f) => f(interp, args, nargout).map(|mut out| {
+            // A call never yields more values than were asked for (at least one).
+            out.truncate(nargout.max(1));
+            Some(out)
+        }),
         None => Ok(None),
     }
 }
