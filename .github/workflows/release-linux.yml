@@ -16,6 +16,7 @@ on:
       - "packaging/env.sh"
       - "packaging/linux/**"
       - "assets/app-icon/**"
+      - "assets/icons/**"
   workflow_dispatch:
     inputs:
       tag:

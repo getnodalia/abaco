@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Regenerate every installer icon (Linux hicolor PNGs, Windows .ico, macOS .icns, the 1024 px
-# master) into assets/app-icon from the code that draws the window icon.
+# Regenerate the Windows .ico and macOS .icns in assets/app-icon from the PNGs in assets/icons.
 #
 # Needs only cargo. The outputs are committed, so building and packaging never need this; run it
-# after changing apps/abaco-app/src/icon.rs, or after replacing the picture with another one.
+# after replacing the PNGs in assets/icons.
 #
 #   packaging/icons.sh
 set -euo pipefail

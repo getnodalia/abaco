@@ -17,7 +17,7 @@ Nothing has been released yet.
 ## Desired state
 
 Engineering suite look through `nodalia_theme::engineering`, shared with Forja, Torno and Vortia;
-the Engineering suite's own app icon; website page getnodalia.com/abaco; a Nodalia Launcher catalog entry.
+website page getnodalia.com/abaco; a Nodalia Launcher catalog entry.
 
 ## Inherited dependencies still pending
 
@@ -31,8 +31,8 @@ None.
 
 ## NDL work pending
 
-- The app icon is an abacus drawn in code (`apps/abaco-app/src/icon.rs`, original work, in
-  `ATTRIBUTION.md`); the Engineering suite's own mark for it is still to come from nodalia-design.
+- The app icon is a portrait of John Napier (`assets/icons/`, made with `tools/app-portrait` in
+  nodalia-design); `assets/app-icon/` (.ico, .icns) is built from it by `packaging/icons.sh`.
 - `nodalia-update` (the in-app update check) is not wired in.
 - The macOS DMG and the Windows MSI and zip have not been built: the workflows and scripts exist
   but their first run is the first release. The Windows setup dialogs are Pliego's
@@ -44,7 +44,6 @@ None.
 - The DMG motif for Ábaco lives in `packaging/macos/dmg/draw_background_abaco.py` and should move
   into nodalia-design's `draw_background.py`.
 - No real signing: macOS is signed ad hoc and not notarized, Windows unsigned, until secrets are set.
-- A Launcher catalog entry for `abaco` is still to be added in nodalia-launcher.
 
 ## Missing tests
 

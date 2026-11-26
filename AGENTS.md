@@ -94,7 +94,7 @@ window) and `release-windows.yml` (MSI and portable zip) build and attach the pa
 scripts in `packaging/`, named `abaco-<version>-<os>-<arch>` as the Nodalia Launcher expects;
 Foundation's `release-publish` publishes. Packages install the window as `abaco` and the command
 line as `abaco-cli`, whatever cargo calls them (`packaging/env.sh`). The icon files in
-`assets/app-icon/` come from `packaging/icons.sh`: replace the icon there, not in each installer.
+`assets/app-icon/` (.ico, .icns) come from `packaging/icons.sh`, built from the PNGs in `assets/icons/`: replace the icon there, not in each installer.
 What is still missing is in `NODALIA_MIGRATION.md`.
 
 ## Pull requests

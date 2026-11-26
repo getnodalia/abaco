@@ -5,8 +5,9 @@ Every asset in this repository, with its author, source and licence. Code is `MI
 
 | Path | What | Author | Source | Licence |
 |---|---|---|---|---|
-| `apps/abaco-app/src/icon.rs` | The app icon: an abacus in white on `#A23B72`, drawn in code at run time (window icon, title bar, About) | Ábaco contributors | Original work | `MIT OR Apache-2.0` |
-| `assets/app-icon/**` | The same icon rendered for installers by `cargo run -p abaco-app --example icons -- assets/app-icon` (or `packaging/icons.sh`): Linux hicolor PNGs, `abaco-1024.png`, `abaco.ico`, `abaco.icns` | Ábaco contributors | Original work, generated from `icon.rs` | `MIT OR Apache-2.0` |
+| `assets/icons/abaco-portrait-1024.png`, `assets/icons/abaco*.svg`, `assets/icons/abaco-1024.png` | App icon artwork: John Napier of Merchiston (1550–1617), inventor of logarithms, cut out in black and white on Ábaco's plum | Nodalia, from a 1616 portrait painting (artist unknown) | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:John_Napier_of_Merchiston,_1616.jpg); made with nodalia-design `tools/app-portrait` | Portrait: public domain. Artwork: `MIT OR Apache-2.0` |
+| `assets/icons/hicolor/*/apps/dev.danielmiguelt.Abaco.*` | App icon at each size, on the Colloid application grid | Nodalia | made from the artwork above with nodalia-design `tools/app-portrait/icon-set.py` | `MIT OR Apache-2.0` |
+| `assets/app-icon/abaco.ico`, `assets/app-icon/abaco.icns` | The same icon packed for Windows and macOS installers by `cargo run -p abaco-app --example icons -- assets/app-icon` (or `packaging/icons.sh`); the PNGs are embedded as they are | Nodalia | Generated from `assets/icons/` | `MIT OR Apache-2.0` |
 | `packaging/macos/dmg/background.svg`, `packaging/macos/dmg/background.tiff` | The window shown when the macOS DMG opens: Nodalia islands, a counting frame and a sum, in Ábaco's colour. The text is outlined from Sora (see below) | Ábaco contributors | Original work, written by `packaging/macos/dmg/draw_background_abaco.py` on the layout of nodalia-design's `tools/dmg-background` | `MIT OR Apache-2.0`; the outlined letter shapes come from Sora, `OFL-1.1` |
 | `packaging/macos/dmg/dmg-layout.DS_Store` | Finder's view settings for that window (sizes and positions only), written by `packaging/macos/dmg/generate.py` | Ábaco contributors | Original work | `MIT OR Apache-2.0` |
 

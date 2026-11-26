@@ -1,67 +1,43 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-//! Writes Ábaco's app icon in the files the installers need, from the same code that draws the
-//! window icon (`abaco_app::icon`), so there is one picture and no drawing to keep in step.
+//! Builds the two icon files the installers need that no tool in the repository makes otherwise,
+//! from the app's portrait icon set in `assets/icons/`.
 //!
 //! ```text
 //! cargo run -p abaco-app --example icons -- assets/app-icon      (or packaging/icons.sh)
 //! ```
 //!
-//! Writes, under the folder given:
+//! Reads `assets/icons/hicolor/<n>x<n>/apps/dev.danielmiguelt.Abaco.png` (16 to 512 px) and
+//! `assets/icons/abaco-1024.png`, and writes under the folder given:
 //!
-//! * `hicolor/<n>x<n>/apps/dev.danielmiguelt.Abaco.png`: the Linux icon theme sizes;
-//! * `abaco-1024.png`: the full-size master;
 //! * `abaco.ico`: Windows (PNG entries from 16 to 256 px);
-//! * `abaco.icns`: macOS, on Apple's grid (an 824/1024 body inside a transparent margin).
+//! * `abaco.icns`: macOS (PNG entries from 16 to 1024 px).
 //!
-//! The output is byte for byte the same on every run. To use another picture later, replace the
-//! files (or this example's source of pixels) and keep the names: the packaging scripts and
-//! `ATTRIBUTION.md` refer to them.
+//! The PNGs are embedded as they are, never decoded or resampled, so the output is byte for byte
+//! the same on every run. The Linux packages use `assets/icons/hicolor` directly. To change the
+//! picture, replace the PNGs in `assets/icons/` (keep the names) and run this again.
 
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use abaco_app::icon::rgba;
-
 const APP_ID: &str = abaco_app::APP_ID;
-const HICOLOR_SIZES: [usize; 8] = [16, 24, 32, 48, 64, 128, 256, 512];
-const ICO_SIZES: [usize; 9] = [16, 20, 24, 32, 40, 48, 64, 128, 256];
+const ICO_SIZES: [usize; 7] = [16, 24, 32, 48, 64, 128, 256];
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-fn png(size: usize, pixels: &[u8]) -> Result<Vec<u8>> {
-    let side = u32::try_from(size)?;
-    let mut out = Vec::new();
-    let mut encoder = png::Encoder::new(&mut out, side, side);
-    encoder.set_color(png::ColorType::Rgba);
-    encoder.set_depth(png::BitDepth::Eight);
-    encoder.write_header()?.write_image_data(pixels)?;
-    Ok(out)
-}
-
-/// The icon at `size`, filling the square: the Windows and Linux form.
-fn full(size: usize) -> Result<Vec<u8>> {
-    png(size, &rgba(size))
-}
-
-/// The icon at `size` on Apple's grid: a body of 824/1024 centred in a transparent margin.
-fn on_apple_grid(size: usize) -> Result<Vec<u8>> {
-    let body = (size * 824 + 512) / 1024;
-    let inner = rgba(body);
-    let offset = (size - body) / 2;
-    let mut canvas = vec![0u8; size * size * 4];
-    for row in 0..body {
-        let from = row * body * 4;
-        let to = ((row + offset) * size + offset) * 4;
-        let source = inner
-            .get(from..from + body * 4)
-            .ok_or("icon row out of range")?;
-        let target = canvas
-            .get_mut(to..to + body * 4)
-            .ok_or("canvas row out of range")?;
-        target.copy_from_slice(source);
-    }
-    png(size, &canvas)
+/// The committed PNG of the icon at `size`.
+fn source(size: usize) -> Result<Vec<u8>> {
+    let icons = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/icons");
+    let path = if size == 1024 {
+        icons.join("abaco-1024.png")
+    } else {
+        icons
+            .join("hicolor")
+            .join(format!("{size}x{size}"))
+            .join("apps")
+            .join(format!("{APP_ID}.png"))
+    };
+    Ok(fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?)
 }
 
 fn write(path: &Path, bytes: &[u8]) -> Result<()> {
@@ -74,10 +50,9 @@ fn write(path: &Path, bytes: &[u8]) -> Result<()> {
 }
 
 fn ico() -> Result<Vec<u8>> {
-    let images = ICO_SIZES.map(full);
     let mut data = Vec::new();
-    for image in images {
-        data.push(image?);
+    for size in ICO_SIZES {
+        data.push(source(size)?);
     }
     let mut out = Vec::new();
     out.extend_from_slice(&0u16.to_le_bytes()); // reserved
@@ -117,7 +92,7 @@ fn icns() -> Result<Vec<u8>> {
     ];
     let mut body = Vec::new();
     for (kind, size) in TYPES {
-        let image = on_apple_grid(size)?;
+        let image = source(size)?;
         body.extend_from_slice(kind);
         body.extend_from_slice(&u32::try_from(image.len() + 8)?.to_be_bytes());
         body.extend_from_slice(&image);
@@ -134,15 +109,6 @@ fn main() -> Result<()> {
         .nth(1)
         .map(PathBuf::from)
         .ok_or("usage: icons <output folder>, e.g. assets/app-icon")?;
-    for size in HICOLOR_SIZES {
-        let path = dir
-            .join("hicolor")
-            .join(format!("{size}x{size}"))
-            .join("apps")
-            .join(format!("{APP_ID}.png"));
-        write(&path, &full(size)?)?;
-    }
-    write(&dir.join("abaco-1024.png"), &full(1024)?)?;
     write(&dir.join("abaco.ico"), &ico()?)?;
     write(&dir.join("abaco.icns"), &icns()?)?;
     Ok(())
