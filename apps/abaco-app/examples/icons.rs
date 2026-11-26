@@ -53,8 +53,12 @@ fn on_apple_grid(size: usize) -> Result<Vec<u8>> {
     for row in 0..body {
         let from = row * body * 4;
         let to = ((row + offset) * size + offset) * 4;
-        let source = inner.get(from..from + body * 4).ok_or("icon row out of range")?;
-        let target = canvas.get_mut(to..to + body * 4).ok_or("canvas row out of range")?;
+        let source = inner
+            .get(from..from + body * 4)
+            .ok_or("icon row out of range")?;
+        let target = canvas
+            .get_mut(to..to + body * 4)
+            .ok_or("canvas row out of range")?;
         target.copy_from_slice(source);
     }
     png(size, &canvas)
