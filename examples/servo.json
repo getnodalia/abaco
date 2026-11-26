@@ -1,0 +1,183 @@
+{
+  "name": "Servo with a torque limit",
+  "solver": {
+    "method": "dopri5",
+    "start_time": 0.0,
+    "stop_time": 6.0,
+    "step": null,
+    "max_step": null,
+    "rtol": 0.001,
+    "atol": 1e-6
+  },
+  "blocks": [
+    {
+      "name": "ref",
+      "type": "Step",
+      "time": 1.0,
+      "before": 0.0,
+      "after": 1.0
+    },
+    {
+      "name": "error",
+      "type": "Sum",
+      "signs": "+-"
+    },
+    {
+      "name": "kp",
+      "type": "Gain",
+      "gain": 20.0
+    },
+    {
+      "name": "kd",
+      "type": "Gain",
+      "gain": 2.0
+    },
+    {
+      "name": "command",
+      "type": "Sum",
+      "signs": "+-"
+    },
+    {
+      "name": "limit",
+      "type": "Saturation",
+      "lower": -5.0,
+      "upper": 5.0
+    },
+    {
+      "name": "speed",
+      "type": "Integrator",
+      "initial": 0.0,
+      "lower": null,
+      "upper": null
+    },
+    {
+      "name": "position",
+      "type": "Integrator",
+      "initial": 0.0,
+      "lower": null,
+      "upper": null
+    },
+    {
+      "name": "Position",
+      "type": "Scope",
+      "inputs": 1
+    },
+    {
+      "name": "Torque",
+      "type": "Scope",
+      "inputs": 1
+    }
+  ],
+  "lines": [
+    {
+      "from": [
+        "ref",
+        0
+      ],
+      "to": [
+        "error",
+        0
+      ]
+    },
+    {
+      "from": [
+        "position",
+        0
+      ],
+      "to": [
+        "error",
+        1
+      ]
+    },
+    {
+      "from": [
+        "error",
+        0
+      ],
+      "to": [
+        "kp",
+        0
+      ]
+    },
+    {
+      "from": [
+        "speed",
+        0
+      ],
+      "to": [
+        "kd",
+        0
+      ]
+    },
+    {
+      "from": [
+        "kp",
+        0
+      ],
+      "to": [
+        "command",
+        0
+      ]
+    },
+    {
+      "from": [
+        "kd",
+        0
+      ],
+      "to": [
+        "command",
+        1
+      ]
+    },
+    {
+      "from": [
+        "command",
+        0
+      ],
+      "to": [
+        "limit",
+        0
+      ]
+    },
+    {
+      "from": [
+        "limit",
+        0
+      ],
+      "to": [
+        "speed",
+        0
+      ]
+    },
+    {
+      "from": [
+        "speed",
+        0
+      ],
+      "to": [
+        "position",
+        0
+      ]
+    },
+    {
+      "from": [
+        "position",
+        0
+      ],
+      "to": [
+        "Position",
+        0
+      ]
+    },
+    {
+      "from": [
+        "limit",
+        0
+      ],
+      "to": [
+        "Torque",
+        0
+      ]
+    }
+  ]
+}

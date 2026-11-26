@@ -420,7 +420,13 @@ impl Interp {
     fn exec(&mut self, s: &Stmt) -> Result<Flow> {
         self.charge(1)?;
         self.guard_stack()?;
-        self.exec_inner(s).map_err(|e| e.or_span(s.span))
+        let flow = self.exec_inner(s).map_err(|e| e.or_span(s.span));
+        for rcond in crate::linalg::take_conditioning() {
+            self.warn(format!(
+                "Matrix is close to singular or badly scaled. Results may be inaccurate. RCOND = {rcond:.6e}."
+            ));
+        }
+        flow
     }
 
     fn exec_inner(&mut self, s: &Stmt) -> Result<Flow> {

@@ -5,6 +5,7 @@
 
 use abaco_app::commands::Cmd;
 use abaco_app::i18n::tr;
+use abaco_app::script::engine::Job;
 use abaco_app::workbook::Msg;
 use egui::{pos2, vec2, Id, Rect, Sense, Ui, UiBuilder};
 use nodalia_theme::engineering::{
@@ -14,7 +15,7 @@ use nodalia_theme::for_egui::color;
 use nodalia_theme::Mode;
 
 use crate::app::App;
-use crate::{cells, chrome, overlays, panels};
+use crate::{cells, chrome, overlays, panels, script_ui};
 
 const RIBBON_H: f32 = 84.0;
 const MIN_CENTER: f32 = 420.0;
@@ -37,6 +38,8 @@ pub fn show(ui: &mut Ui, app: &mut App) {
 
     let mut cmds: Vec<Cmd> = Vec::new();
     let mut msgs: Vec<Msg> = Vec::new();
+    let mut jobs: Vec<Job> = Vec::new();
+    let scripting = app.script_mode() && !app.home;
     let gap = layout::GAP;
 
     let title = Rect::from_min_size(full.min, vec2(full.width(), layout::TITLE_BAR));
@@ -47,7 +50,11 @@ pub fn show(ui: &mut Ui, app: &mut App) {
         pos2(full.right() - gap, title.bottom() + RIBBON_H),
     );
     island(ui, &look, ribbon, "ribbon", |ui| {
-        ribbon_tools(ui, &look, app, &mut cmds)
+        if app.script_mode() {
+            script_ribbon(ui, &look, app, &mut cmds)
+        } else {
+            ribbon_tools(ui, &look, app, &mut cmds)
+        }
     });
 
     let status = Rect::from_min_max(
@@ -59,6 +66,43 @@ pub fn show(ui: &mut Ui, app: &mut App) {
         pos2(full.right() - gap, status.top()),
     );
 
+    if scripting {
+        let mut out = script_ui::Out::default();
+        script_ui::body(ui, &look, app, body, &mut out);
+        jobs.append(&mut out.jobs);
+        cmds.append(&mut out.cmds);
+    } else {
+        document_body(ui, &look, app, body, &mut msgs);
+    }
+
+    ui.scope_builder(UiBuilder::new().max_rect(status), |ui| {
+        if scripting {
+            script_ui::status(ui, &look, app);
+        } else {
+            panels::status(ui, &look, &app.wb, &app.settings, app.engine_lost);
+        }
+    });
+
+    overlays::show(&ctx, app, &look);
+    toasts(ui, app, &look);
+    if ndl {
+        chrome::resize_edges(ui, full);
+    }
+    for msg in msgs {
+        app.msg(msg);
+    }
+    for job in jobs {
+        app.script_send(job);
+    }
+    for cmd in cmds {
+        app.run(cmd);
+    }
+}
+
+/// The outline, the document and the side panel.
+fn document_body(ui: &mut Ui, look: &Look, app: &mut App, body: Rect, msgs: &mut Vec<Msg>) {
+    let ctx = ui.ctx().clone();
+    let gap = layout::GAP;
     // Side panels give way before the document does.
     let mut left = app.settings.show_navigator && !app.home;
     let mut right = app.settings.show_side_panel && !app.home;
@@ -84,8 +128,8 @@ pub fn show(ui: &mut Ui, app: &mut App) {
             body.min,
             pos2(body.left() + layout::BROWSER_WIDTH, body.bottom()),
         );
-        island(ui, &look, r, "outline", |ui| {
-            panels::outline(ui, &look, &mut app.wb, &mut msgs)
+        island(ui, look, r, "outline", |ui| {
+            panels::outline(ui, look, &mut app.wb, msgs)
         });
         x0 = r.right() + gap;
     }
@@ -95,14 +139,14 @@ pub fn show(ui: &mut Ui, app: &mut App) {
             body.max,
         );
         let mut changed = false;
-        island(ui, &look, r, "side", |ui| {
+        island(ui, look, r, "side", |ui| {
             let App {
                 settings,
                 units,
                 wb,
                 ..
             } = app;
-            changed = panels::side_panel(ui, &look, settings, units, wb, &mut msgs);
+            changed = panels::side_panel(ui, look, settings, units, wb, msgs);
         });
         if changed {
             app.save_settings();
@@ -110,10 +154,10 @@ pub fn show(ui: &mut Ui, app: &mut App) {
         x1 = r.left() - gap;
     }
     let center = Rect::from_min_max(pos2(x0, body.top()), pos2(x1, body.bottom()));
-    island(ui, &look, center, "document", |ui| {
+    island(ui, look, center, "document", |ui| {
         if app.home {
             let icon = app.icon(&ctx);
-            if let Some(action) = panels::home(ui, &look, icon, &app.settings) {
+            if let Some(action) = panels::home(ui, look, icon, &app.settings) {
                 app.home = false;
                 app.guard(panels::pending_of(action));
             }
@@ -123,30 +167,14 @@ pub fn show(ui: &mut Ui, app: &mut App) {
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     ui.add_space(4.0);
-                    cells::show(ui, &mut app.wb, &look, &mut msgs);
+                    cells::show(ui, &mut app.wb, look, msgs);
                 });
         }
     });
-
-    ui.scope_builder(UiBuilder::new().max_rect(status), |ui| {
-        panels::status(ui, &look, &app.wb, &app.settings, app.engine_lost);
-    });
-
-    overlays::show(&ctx, app, &look);
-    toasts(ui, app, &look);
-    if ndl {
-        chrome::resize_edges(ui, full);
-    }
-    for msg in msgs {
-        app.msg(msg);
-    }
-    for cmd in cmds {
-        app.run(cmd);
-    }
 }
 
 /// A rounded panel surface filling `rect`.
-fn island(ui: &mut Ui, look: &Look, rect: Rect, id: &str, add: impl FnOnce(&mut Ui)) {
+pub fn island(ui: &mut Ui, look: &Look, rect: Rect, id: &str, add: impl FnOnce(&mut Ui)) {
     ui.scope_builder(UiBuilder::new().max_rect(rect).id_salt(id), |ui| {
         eng::island(look).show(ui, |ui| {
             let inner = vec2(rect.width() - 16.0, rect.height() - 12.0);
@@ -213,6 +241,65 @@ fn ribbon_tools(ui: &mut Ui, look: &Look, app: &App, cmds: &mut Vec<Cmd>) {
                     && app.settings.side_panel == abaco_app::settings::SidePanel::Document,
             );
         });
+        eng::ribbon_group(ui, look, tr("Workspace"), |ui| {
+            tool(ui, Cmd::ShowDocument, true, cmds, true);
+            tool(ui, Cmd::ShowScript, true, cmds, false);
+        });
+    });
+}
+
+/// The ribbon of the script workspace.
+fn script_ribbon(ui: &mut Ui, look: &Look, app: &App, cmds: &mut Vec<Cmd>) {
+    let tool = |ui: &mut Ui, cmd: Cmd, enabled: bool, cmds: &mut Vec<Cmd>, active: bool| {
+        let name = cmd.icon().unwrap_or("more");
+        let response = ui
+            .add_enabled_ui(enabled, |ui| {
+                eng::ribbon_tool(ui, look, name, short_label(cmd), active)
+            })
+            .inner;
+        let hint = match cmd.shortcut_label(cfg!(target_os = "macos")) {
+            Some(s) => format!("{}  {s}", cmd.translated()),
+            None => cmd.translated().to_owned(),
+        };
+        if response.on_hover_text(hint).clicked() && enabled {
+            cmds.push(cmd);
+        }
+    };
+    let running = app.script.running;
+    ui.horizontal_top(|ui| {
+        ui.spacing_mut().item_spacing.x = 2.0;
+        eng::ribbon_group(ui, look, tr("Script"), |ui| {
+            for cmd in [Cmd::NewBlank, Cmd::Open, Cmd::Save] {
+                tool(ui, cmd, true, cmds, false);
+            }
+            tool(ui, Cmd::RunScript, !running, cmds, false);
+            tool(ui, Cmd::StopScript, running, cmds, false);
+        });
+        eng::ribbon_group(ui, look, tr("Clear"), |ui| {
+            tool(ui, Cmd::ClearWorkspace, true, cmds, false);
+            tool(ui, Cmd::ClearCommandWindow, true, cmds, false);
+            tool(ui, Cmd::CloseFigures, true, cmds, false);
+        });
+        eng::ribbon_group(ui, look, tr("View"), |ui| {
+            tool(
+                ui,
+                Cmd::ToggleWorkspacePanel,
+                true,
+                cmds,
+                app.settings.show_workspace_panel,
+            );
+            tool(
+                ui,
+                Cmd::ToggleFiguresPanel,
+                true,
+                cmds,
+                app.settings.show_figures_panel,
+            );
+        });
+        eng::ribbon_group(ui, look, tr("Workspace"), |ui| {
+            tool(ui, Cmd::ShowDocument, true, cmds, false);
+            tool(ui, Cmd::ShowScript, true, cmds, true);
+        });
     });
 }
 
@@ -232,6 +319,15 @@ fn short_label(cmd: Cmd) -> &'static str {
         Cmd::ToggleNavigator => tr("Outline"),
         Cmd::ShowUnits => tr("Units"),
         Cmd::ShowDocumentSettings => tr("Settings"),
+        Cmd::ShowDocument => tr("Document"),
+        Cmd::ShowScript => tr("Script"),
+        Cmd::RunScript => tr("Run"),
+        Cmd::StopScript => tr("Stop"),
+        Cmd::ClearWorkspace => tr("Variables"),
+        Cmd::ClearCommandWindow => tr("Window"),
+        Cmd::CloseFigures => tr("Close all"),
+        Cmd::ToggleWorkspacePanel => tr("Workspace"),
+        Cmd::ToggleFiguresPanel => tr("Figures"),
         other => other.translated(),
     }
 }
@@ -260,7 +356,7 @@ fn title_bar(
     let name = app.dirty_title();
     let documents = [Document {
         name: &name,
-        modified: app.wb.dirty,
+        modified: app.title_modified(),
     }];
     let icon = app.icon(&ctx);
     let title = TitleBar {
@@ -324,11 +420,11 @@ fn title_bar(
         Some(TitleAction::Search) => cmds.push(Cmd::CommandSearch),
         Some(TitleAction::Undo) | Some(TitleAction::Redo) | None => {}
     }
-    title_menus(ui, look, cmds);
+    title_menus(ui, look, app.script_mode(), cmds);
 }
 
 /// The File menu and the hamburger menu, opened from the title bar.
-fn title_menus(ui: &mut Ui, look: &Look, cmds: &mut Vec<Cmd>) {
+fn title_menus(ui: &mut Ui, look: &Look, scripting: bool, cmds: &mut Vec<Cmd>) {
     let ctx = ui.ctx().clone();
     let at = |id: Id| {
         ctx.data(|d| d.get_temp::<egui::Pos2>(id.with("at")))
@@ -345,7 +441,14 @@ fn title_menus(ui: &mut Ui, look: &Look, cmds: &mut Vec<Cmd>) {
     let mac = cfg!(target_os = "macos");
     let item = |ui: &mut Ui, cmd: Cmd, cmds: &mut Vec<Cmd>| {
         let shortcut = cmd.shortcut_label(mac);
-        let mut row = menu::Item::new(cmd.translated()).gutter();
+        let label = match (scripting, cmd) {
+            (true, Cmd::NewBlank) => tr("New script"),
+            (true, Cmd::Open) => tr("Open a script…"),
+            (true, Cmd::Save) => tr("Save the script"),
+            (true, Cmd::SaveAs) => tr("Save the script as…"),
+            _ => cmd.translated(),
+        };
+        let mut row = menu::Item::new(label).gutter();
         if let Some(icon) = cmd.icon() {
             row = row.icon(icon);
         }

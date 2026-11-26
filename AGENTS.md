@@ -23,9 +23,10 @@ what does not exist yet; planned features are never described as existing.
 | `crates/nodalia-units` | Dimensions, units, quantities, conversion and parsing (`9.81 m/s^2`); dimensional analysis. Shared engine: other Nodalia apps depend on it |
 | `crates/nodalia-numerics` | Dense linear algebra (real and complex), LU, Cholesky, QR, eigenvalues, root finding, quadrature, ODE integration. Shared engine |
 | `crates/abaco-script` | Ábaco Script, the MATLAB-class matrix language: lexer, parser, interpreter, function library, plot recording. Bounded input, no UI |
+| `crates/abaco-blocks` | Ábaco Blocks, the Simulink-class block-diagram modeller: model, compiler, solvers, linearisation. Bounded input, no UI |
 | `crates/abaco-expr` | Lexer, parser, AST and evaluator for the expression language, with units, vectors and matrices |
 | `crates/abaco-doc` | The maths document: cells, dependency graph, ordered reactive evaluation, the `.abaco` file format |
-| `apps/abaco-cli` | Headless `abaco` command: `eval`, `run`, `convert` |
+| `apps/abaco-cli` | Headless `abaco` command: `eval`, `run`, `script`, `sim`, `repl` |
 | `apps/abaco` | The egui app |
 
 Dependencies point down: engines never use egui, eframe or winit, and no engine blocks on I/O it

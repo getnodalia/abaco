@@ -25,6 +25,15 @@ pub enum Cmd {
     ToggleSidePanel,
     ShowUnits,
     ShowDocumentSettings,
+    ShowDocument,
+    ShowScript,
+    ToggleWorkspacePanel,
+    ToggleFiguresPanel,
+    RunScript,
+    StopScript,
+    ClearWorkspace,
+    ClearCommandWindow,
+    CloseFigures,
     CommandSearch,
     Preferences,
     KeyboardShortcuts,
@@ -37,14 +46,16 @@ pub enum Category {
     File,
     Cells,
     View,
+    Script,
     Help,
 }
 
 impl Category {
-    pub const ALL: [Category; 4] = [
+    pub const ALL: [Category; 5] = [
         Category::File,
         Category::Cells,
         Category::View,
+        Category::Script,
         Category::Help,
     ];
 
@@ -53,6 +64,7 @@ impl Category {
             Category::File => "File",
             Category::Cells => "Cells",
             Category::View => "View",
+            Category::Script => "Script",
             Category::Help => "Help",
         }
     }
@@ -72,7 +84,7 @@ const fn shortcut(command: bool, shift: bool, alt: bool, key: Key) -> Option<Key
 }
 
 impl Cmd {
-    pub const ALL: [Cmd; 21] = [
+    pub const ALL: [Cmd; 30] = [
         Cmd::NewBlank,
         Cmd::OpenSample,
         Cmd::Open,
@@ -90,6 +102,15 @@ impl Cmd {
         Cmd::ToggleSidePanel,
         Cmd::ShowUnits,
         Cmd::ShowDocumentSettings,
+        Cmd::ShowDocument,
+        Cmd::ShowScript,
+        Cmd::ToggleWorkspacePanel,
+        Cmd::ToggleFiguresPanel,
+        Cmd::RunScript,
+        Cmd::StopScript,
+        Cmd::ClearWorkspace,
+        Cmd::ClearCommandWindow,
+        Cmd::CloseFigures,
         Cmd::CommandSearch,
         Cmd::Preferences,
         Cmd::KeyboardShortcuts,
@@ -116,6 +137,15 @@ impl Cmd {
             Cmd::ToggleSidePanel => "view.side-panel",
             Cmd::ShowUnits => "view.units",
             Cmd::ShowDocumentSettings => "view.document",
+            Cmd::ShowDocument => "view.maths-document",
+            Cmd::ShowScript => "view.script",
+            Cmd::ToggleWorkspacePanel => "view.workspace",
+            Cmd::ToggleFiguresPanel => "view.figures",
+            Cmd::RunScript => "script.run",
+            Cmd::StopScript => "script.stop",
+            Cmd::ClearWorkspace => "script.clear-workspace",
+            Cmd::ClearCommandWindow => "script.clear-window",
+            Cmd::CloseFigures => "script.close-figures",
             Cmd::CommandSearch => "app.search",
             Cmd::Preferences => "app.preferences",
             Cmd::KeyboardShortcuts => "app.shortcuts",
@@ -147,6 +177,15 @@ impl Cmd {
             Cmd::ToggleSidePanel => "Show or hide the side panel",
             Cmd::ShowUnits => "Units and constants",
             Cmd::ShowDocumentSettings => "Document settings",
+            Cmd::ShowDocument => "Maths document",
+            Cmd::ShowScript => "Script and command window",
+            Cmd::ToggleWorkspacePanel => "Show or hide the workspace",
+            Cmd::ToggleFiguresPanel => "Show or hide the figures",
+            Cmd::RunScript => "Run the script",
+            Cmd::StopScript => "Stop the run",
+            Cmd::ClearWorkspace => "Clear the variables",
+            Cmd::ClearCommandWindow => "Clear the command window",
+            Cmd::CloseFigures => "Close all figures",
             Cmd::CommandSearch => "Search commands",
             Cmd::Preferences => "Preferences",
             Cmd::KeyboardShortcuts => "Keyboard shortcuts",
@@ -173,7 +212,16 @@ impl Cmd {
             Cmd::ToggleNavigator
             | Cmd::ToggleSidePanel
             | Cmd::ShowUnits
-            | Cmd::ShowDocumentSettings => Category::View,
+            | Cmd::ShowDocumentSettings
+            | Cmd::ShowDocument
+            | Cmd::ShowScript
+            | Cmd::ToggleWorkspacePanel
+            | Cmd::ToggleFiguresPanel => Category::View,
+            Cmd::RunScript
+            | Cmd::StopScript
+            | Cmd::ClearWorkspace
+            | Cmd::ClearCommandWindow
+            | Cmd::CloseFigures => Category::Script,
             Cmd::CommandSearch | Cmd::Preferences | Cmd::KeyboardShortcuts | Cmd::About => {
                 Category::Help
             }
@@ -200,6 +248,15 @@ impl Cmd {
             Cmd::ToggleSidePanel => "panel-right",
             Cmd::ShowUnits => "ruler",
             Cmd::ShowDocumentSettings => "settings",
+            Cmd::ShowDocument => "file-text",
+            Cmd::ShowScript => "terminal",
+            Cmd::ToggleWorkspacePanel => "workspace",
+            Cmd::ToggleFiguresPanel => "chart",
+            Cmd::RunScript => "run",
+            Cmd::StopScript => "stop",
+            Cmd::ClearWorkspace => "eraser",
+            Cmd::ClearCommandWindow => "brush-remove",
+            Cmd::CloseFigures => "window-close",
             Cmd::CommandSearch => "search",
             Cmd::Preferences => "settings",
             Cmd::KeyboardShortcuts => "keyboard",
@@ -223,6 +280,10 @@ impl Cmd {
             Cmd::MoveDown => shortcut(false, false, true, Key::ArrowDown),
             Cmd::ToggleNavigator => shortcut(true, false, false, Key::B),
             Cmd::ToggleSidePanel => shortcut(true, true, false, Key::B),
+            Cmd::ShowScript => shortcut(true, false, false, Key::J),
+            Cmd::ShowDocument => shortcut(true, true, false, Key::J),
+            Cmd::RunScript => shortcut(false, false, false, Key::F5),
+            Cmd::StopScript => shortcut(true, false, false, Key::Period),
             Cmd::CommandSearch => shortcut(true, false, false, Key::K),
             Cmd::Preferences => shortcut(true, false, false, Key::Comma),
             Cmd::KeyboardShortcuts => shortcut(true, false, false, Key::Slash),
@@ -244,6 +305,7 @@ fn key_name(key: Key) -> String {
         Key::ArrowDown => "↓".to_owned(),
         Key::Comma => ",".to_owned(),
         Key::Slash => "/".to_owned(),
+        Key::Period => ".".to_owned(),
         other => other.name().to_owned(),
     }
 }
@@ -319,7 +381,7 @@ mod tests {
                 );
             }
         }
-        assert!(seen.len() >= 14);
+        assert!(seen.len() >= 18);
     }
 
     #[test]
@@ -336,6 +398,11 @@ mod tests {
         );
         assert_eq!(Cmd::MoveUp.shortcut_label(false).as_deref(), Some("Alt+↑"));
         assert_eq!(Cmd::About.shortcut_label(false), None);
+        assert_eq!(Cmd::RunScript.shortcut_label(false).as_deref(), Some("F5"));
+        assert_eq!(
+            Cmd::StopScript.shortcut_label(false).as_deref(),
+            Some("Ctrl+.")
+        );
     }
 
     #[test]

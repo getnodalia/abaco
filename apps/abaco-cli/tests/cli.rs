@@ -488,3 +488,72 @@ fn functions_lists_the_library() {
     assert!(text.lines().any(|l| l == "eig") && text.lines().any(|l| l == "plot"));
     assert!(text.lines().count() > 300, "{}", text.lines().count());
 }
+
+fn decay_model() -> PathBuf {
+    // x' = -x, x(0) = 1, so x(T) = e^-T.
+    let text = r#"{
+      "name": "decay",
+      "solver": { "method": "dopri5", "stop_time": 2.0, "rtol": 1e-9, "atol": 1e-12 },
+      "blocks": [
+        { "name": "int", "type": "Integrator", "initial": 1.0 },
+        { "name": "k", "type": "Gain", "gain": -1.0 },
+        { "name": "x", "type": "Scope", "inputs": 1 }
+      ],
+      "lines": [
+        { "from": ["int", 0], "to": ["k", 0] },
+        { "from": ["k", 0], "to": ["int", 0] },
+        { "from": ["int", 0], "to": ["x", 0] }
+      ]
+    }"#;
+    temp_file("decay.json", text)
+}
+
+#[test]
+fn sim_runs_a_block_diagram_and_matches_the_analytic_solution() {
+    let f = decay_model();
+    let o = abaco(&["sim", f.to_str().unwrap(), "--json"]);
+    assert_eq!(code(&o), 0, "{}", stderr(&o));
+    let v: Value = serde_json::from_str(&stdout(&o)).unwrap();
+    assert_eq!(v["ok"], true);
+    let data = v["signals"][0]["data"].as_array().unwrap();
+    let last = data.last().unwrap().as_f64().unwrap();
+    assert!((last - (-2.0f64).exp()).abs() < 1e-7, "x(2) = {last}");
+    // --stop shortens the run.
+    let o = abaco(&["sim", f.to_str().unwrap(), "--stop", "1", "--json"]);
+    let v: Value = serde_json::from_str(&stdout(&o)).unwrap();
+    let t = v["time"]
+        .as_array()
+        .unwrap()
+        .last()
+        .unwrap()
+        .as_f64()
+        .unwrap();
+    assert!((t - 1.0).abs() < 1e-12);
+}
+
+#[test]
+fn sim_prints_a_summary_and_writes_csv() {
+    let f = decay_model();
+    let csv = f.with_file_name("decay.csv");
+    let o = abaco(&["sim", f.to_str().unwrap(), "--csv", csv.to_str().unwrap()]);
+    assert_eq!(code(&o), 0, "{}", stderr(&o));
+    let text = stdout(&o);
+    assert!(text.contains("x = [0.135335"), "{text}");
+    let written = std::fs::read_to_string(csv).unwrap();
+    assert!(written.starts_with("time,x\n"), "{written}");
+}
+
+#[test]
+fn sim_names_the_block_when_the_model_is_wrong() {
+    // An algebraic loop: a gain feeding itself.
+    let text = r#"{ "blocks": [ { "name": "g", "type": "Gain", "gain": 2.0 } ],
+                    "lines": [ { "from": ["g", 0], "to": ["g", 0] } ] }"#;
+    let f = temp_file("loop.json", text);
+    let o = abaco(&["sim", f.to_str().unwrap()]);
+    assert_eq!(code(&o), 1);
+    assert!(stderr(&o).contains("algebraic loop"), "{}", stderr(&o));
+    // A file that is not a model is a usage problem.
+    let bad = temp_file("bad.json", "[1, 2]");
+    assert_eq!(code(&abaco(&["sim", bad.to_str().unwrap()])), 2);
+    assert_eq!(code(&abaco(&["sim", "does-not-exist.json"])), 2);
+}

@@ -17,6 +17,56 @@ pub fn num_err(e: NumError) -> Error {
     Error::new(id, e.to_string())
 }
 
+thread_local! {
+    /// The reciprocal condition numbers of the systems solved since the interpreter last asked,
+    /// when they were too small to trust the digits of the answer.
+    static CONDITIONING: std::cell::RefCell<Vec<f64>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Most warnings kept between two statements.
+const MAX_CONDITIONING_NOTES: usize = 8;
+
+/// Records a system whose answer is mostly rounding noise (the reciprocal condition number is
+/// below machine precision), so the interpreter can say so.
+fn note_conditioning(rcond: f64) {
+    if rcond < f64::EPSILON {
+        CONDITIONING.with(|c| {
+            if let Ok(mut c) = c.try_borrow_mut() {
+                if c.len() < MAX_CONDITIONING_NOTES {
+                    c.push(rcond);
+                }
+            }
+        });
+    }
+}
+
+/// The ill-conditioned solves since the last call, for the interpreter to turn into warnings.
+pub fn take_conditioning() -> Vec<f64> {
+    CONDITIONING.with(|c| {
+        c.try_borrow_mut()
+            .map(|mut c| std::mem::take(&mut *c))
+            .unwrap_or_default()
+    })
+}
+
+/// The reciprocal condition number (1-norm estimate) of a real square matrix; `0` when singular.
+pub fn rcond(a: &Arr<f64>) -> Result<f64> {
+    if a.r != a.c {
+        return err(
+            "Abaco:size",
+            format!("`rcond` needs a square matrix, got {}x{}", a.r, a.c),
+        );
+    }
+    if a.r == 0 {
+        return Ok(f64::INFINITY);
+    }
+    match Lu::factor(&to_matrix(a)?) {
+        Ok(lu) => Ok(lu.rcond_estimate()),
+        Err(NumError::Singular { .. }) => Ok(0.0),
+        Err(e) => Err(num_err(e)),
+    }
+}
+
 /// A real column-major array as a row-major matrix.
 pub fn to_matrix(a: &Arr<f64>) -> Result<Matrix<f64>> {
     let mut d = Vec::with_capacity(a.d.len());
@@ -97,6 +147,7 @@ pub fn solve(a: &Value, b: &Value) -> Result<Value> {
         let am = to_cmatrix(&a.to_complex()?)?;
         let bm = to_cmatrix(&b.to_complex()?)?;
         let lu = Lu::factor(&am).map_err(num_err)?;
+        note_conditioning(lu.rcond_estimate());
         let x = lu.solve_matrix(&bm).map_err(num_err)?;
         return Ok(Value::cplx(from_cmatrix(&x)));
     }
@@ -104,6 +155,7 @@ pub fn solve(a: &Value, b: &Value) -> Result<Value> {
     let bm = to_matrix(&b.to_real()?)?;
     if ar == ac {
         let lu = Lu::factor(&am).map_err(num_err)?;
+        note_conditioning(lu.rcond_estimate());
         let x = lu.solve_matrix(&bm).map_err(num_err)?;
         return Ok(Value::Num(from_matrix(&x)));
     }
@@ -126,17 +178,15 @@ pub fn inv(a: &Value) -> Result<Value> {
     }
     if is_complex(a) {
         let m = to_cmatrix(&a.to_complex()?)?;
-        let i = Lu::factor(&m)
-            .map_err(num_err)?
-            .inverse()
-            .map_err(num_err)?;
+        let lu = Lu::factor(&m).map_err(num_err)?;
+        note_conditioning(lu.rcond_estimate());
+        let i = lu.inverse().map_err(num_err)?;
         return Ok(Value::cplx(from_cmatrix(&i)));
     }
     let m = to_matrix(&a.to_real()?)?;
-    let i = Lu::factor(&m)
-        .map_err(num_err)?
-        .inverse()
-        .map_err(num_err)?;
+    let lu = Lu::factor(&m).map_err(num_err)?;
+    note_conditioning(lu.rcond_estimate());
+    let i = lu.inverse().map_err(num_err)?;
     Ok(Value::Num(from_matrix(&i)))
 }
 

@@ -68,7 +68,23 @@ pub fn tree() -> Vec<(&'static str, Vec<Entry>)> {
                 some(ShowUnits),
                 some(ShowDocumentSettings),
                 None,
+                some(ShowDocument),
+                some(ShowScript),
+                some(ToggleWorkspacePanel),
+                some(ToggleFiguresPanel),
+                None,
                 some(CommandSearch),
+            ]),
+        ),
+        (
+            tr("Script"),
+            items(&[
+                some(RunScript),
+                some(StopScript),
+                None,
+                some(ClearWorkspace),
+                some(ClearCommandWindow),
+                some(CloseFigures),
             ]),
         ),
     ]

@@ -17,6 +17,7 @@
 //!   answering with [`engine::Reply`]s that carry a [`engine::Snapshot`] of every cell's result;
 //! * [`workbook`]: the view-model the window reads, and its reducer;
 //! * [`catalog`]: the units and constants the side panel lists, and the conversion it offers;
+//! * [`script`]: Ábaco Script on a worker thread, and what the script workspace shows;
 //! * [`sample`]: the document a first launch opens;
 //! * [`settings`]: the preferences file;
 //! * [`i18n`]: Spanish and English.
@@ -28,6 +29,7 @@ pub mod highlight;
 pub mod i18n;
 pub mod icon;
 pub mod sample;
+pub mod script;
 pub mod settings;
 mod spanish;
 pub mod workbook;

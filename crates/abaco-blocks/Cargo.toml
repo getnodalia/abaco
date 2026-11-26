@@ -1,0 +1,21 @@
+[package]
+name = "abaco-blocks"
+description = "Ábaco Blocks: a Simulink-class block-diagram modeller with its own continuous, discrete and hybrid solvers."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+nodalia-numerics = { path = "../nodalia-numerics" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[lints]
+workspace = true

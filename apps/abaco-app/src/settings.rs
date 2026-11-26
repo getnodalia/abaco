@@ -30,9 +30,23 @@ pub enum SidePanel {
     Document,
 }
 
+/// What the window shows: the maths document or the script workspace.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Workspace {
+    #[default]
+    Document,
+    Script,
+}
+
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+    pub workspace: Workspace,
+    /// Script workspace: the variable browser on the left.
+    pub show_workspace_panel: bool,
+    /// Script workspace: the figures on the right.
+    pub show_figures_panel: bool,
     pub appearance: Appearance,
     pub high_contrast: bool,
     pub reduced_motion: bool,
@@ -55,6 +69,9 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Settings {
         Settings {
+            workspace: Workspace::Document,
+            show_workspace_panel: true,
+            show_figures_panel: true,
             appearance: Appearance::System,
             high_contrast: false,
             reduced_motion: false,
