@@ -1,0 +1,22 @@
+[package]
+name = "abaco-expr"
+description = "The Ábaco expression language: lexer, parser, AST with spans and an evaluator with units, complex numbers, vectors and matrices."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+nodalia-units = { path = "../nodalia-units" }
+nodalia-numerics = { path = "../nodalia-numerics" }
+num-complex = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[lints]
+workspace = true

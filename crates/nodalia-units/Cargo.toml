@@ -1,0 +1,18 @@
+[package]
+name = "nodalia-units"
+description = "Physical dimensions, units, quantities and CODATA constants with dimensional analysis. Shared Nodalia engine."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[lints]
+workspace = true

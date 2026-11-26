@@ -1,0 +1,18 @@
+[package]
+name = "nodalia-numerics"
+description = "Numerical engine shared by Nodalia apps: dense real and complex matrices, LU, Cholesky, QR and least squares, eigenvalues, root finding, adaptive quadrature and ODE integration, with every failure reported as an error."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+num-complex = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
