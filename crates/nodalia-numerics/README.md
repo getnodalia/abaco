@@ -15,6 +15,9 @@ numbers that explain it; nothing returns a plausible-looking wrong answer.
 | `matfun` | Matrix exponential (Padé 13 with scaling and squaring); eigenvectors of general real matrices by inverse iteration | Rotation generators, nilpotent and diagonal matrices, `A v = λ v` |
 | `roots` | Bisection, Brent, Newton, polynomial roots via the companion matrix | √2, `cos x = x`, `(x−1)…(x−5)`, a pole is rejected as "not a root" |
 | `quad` | Adaptive Gauss–Kronrod G7/K15, infinite limits | Polynomial exactness, Gaussian and Lorentzian integrals, an endpoint singularity, a divergent integral reports failure |
+| `fft` | Radix-2 FFT and Bluestein for any length, convolution | The DFT definition for every length 1–40, round trip, Parseval, a pure tone in one bin |
+| `interp` | Linear, PCHIP and not-a-knot cubic splines as piecewise cubics | A cubic reproduced exactly, monotone data never overshoots, sine error O(h⁴) |
+| `special` | `ln Γ`, incomplete gamma and beta, `erf`, `erfc` and their inverses | Closed forms (`P(1,x)`, `I_x(2,2)`), `erf(erfinv(y)) = y`, domain errors are NaN |
 | `ode` | Dormand–Prince 5(4), adaptive steps, exact landing on output times, cancellation | `e^−t`, harmonic oscillator over a period, `t²`, blow-up reported |
 
 ## Limits, stated plainly

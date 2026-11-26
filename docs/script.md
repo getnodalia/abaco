@@ -32,7 +32,7 @@ coexist. Units inside scripts are planned.
 * Errors carry an identifier and a message that says what to do, and `catch err` gives
   `err.message`, `err.identifier` and `err.stack`.
 
-## Library (more than 350 functions; `abaco functions` lists them)
+## Library (more than 430 functions; `abaco functions` lists them)
 
 | Area | Functions |
 |---|---|
@@ -41,6 +41,11 @@ coexist. Units inside scripts are planned.
 | Reductions | `sum prod mean median mode var std range min max cumsum cumprod cummax cummin diff dot cross trapz cumtrapz any all find nnz sort sortrows unique histc cov corrcoef prctile` |
 | Linear algebra | `det inv \ linsolve trace rank pinv null orth cond norm svd eig chol lu qr expm issymmetric` |
 | Polynomials | `roots poly polyval polyfit polyder polyint conv deconv` |
+| Fourier and filtering | `fft ifft fft2 ifft2 fftshift ifftshift nextpow2 filter filtfilt freqz xcorr findpeaks detrend unwrap sinc` |
+| Filter design and windows | `butter cheby1 fir1 hamming hann bartlett blackman kaiser rectwin` |
+| Interpolation | `interp1 interp2 spline pchip ppval mkpp` |
+| Statistics | `skewness kurtosis quantile iqr mad rms zscore rescale bounds corr histcounts movmean movsum movmedian movmax movmin movstd` |
+| Distributions and special functions | `normpdf normcdf norminv normrnd exppdf expcdf expinv unifpdf unifcdf chi2pdf chi2cdf tpdf tcdf fcdf binopdf binocdf poisspdf poisscdf erfinv erfcinv gammainc betainc beta betaln` |
 | Calculus | `integral quad quadgk integral2 fzero` |
 | Text | `sprintf printf fprintf disp display num2str int2str mat2str str2double str2num upper lower strtrim strrep strsplit strjoin strcat strtok strcmp strcmpi strncmp contains startsWith endsWith strfind regexp regexpi regexprep dec2bin bin2dec dec2hex hex2dec` |
 | Cells and structs | `cell struct fieldnames isfield rmfield getfield setfield struct2cell cell2struct num2cell cell2mat deal cellfun arrayfun structfun isequal ismember union intersect setdiff setxor` |
@@ -65,7 +70,9 @@ Scripts are untrusted input. Every run is bounded and stops with an error, never
 
 Numerical functions are checked against closed forms and published values (see
 `crates/abaco-script/tests/library.rs`): known linear systems, `Q R = A`, `P A = L U`, `U S Vᵀ = A`,
-`A V = V D`, `expm` of a rotation generator, magic squares of every order class, `integral` of
+`A V = V D`, `expm` of a rotation generator, FFT against the definition for every length up to 40,
+Butterworth coefficients against `scipy.signal.butter`, spline exactness on cubics, distributions against
+table values (`crates/abaco-script/tests/science.rs`), magic squares of every order class, `integral` of
 `e^(−x²)` over the real line, `fzero` of `cos x = x`, special-function values, and printf formatting.
 
 ## Limits, stated plainly
@@ -75,6 +82,8 @@ Numerical functions are checked against closed forms and published values (see
   values are stored and displayed as doubles. `intmax`/`intmin` return the class bounds as doubles.
 * `eig` of a complex matrix and complex least squares are not supported; `svd` always returns the
   economy-size `U` and `V`.
+* `fft` accepts any length (Bluestein for non-powers of two) up to 2²⁴ points. `interp1` has no `makima`,
+  `spline` has no clamped end slopes, and `butter`/`cheby1` return transfer-function coefficients only.
 * There are no character matrices: `char` and `num2str` of a matrix join rows with a newline.
 * No file or network functions yet (`fopen`, `readmatrix`, `save`, `load`); `input` and `keyboard`
   are refused. `pause` never blocks.

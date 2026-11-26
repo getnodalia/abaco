@@ -7,6 +7,8 @@
 pub mod cholesky;
 pub mod eigen;
 pub mod error;
+pub mod fft;
+pub mod interp;
 pub mod lu;
 pub mod matfun;
 pub mod matrix;
@@ -15,6 +17,7 @@ pub mod qr;
 pub mod quad;
 pub mod roots;
 pub mod scalar;
+pub mod special;
 pub mod svd;
 
 pub use error::{NumError, Result};
