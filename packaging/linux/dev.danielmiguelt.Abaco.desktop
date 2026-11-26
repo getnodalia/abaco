@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Ábaco
+GenericName=Mathematics
+Comment=Executable maths documents with units
+Exec=abaco %F
+TryExec=abaco
+Icon=dev.danielmiguelt.Abaco
+Terminal=false
+StartupNotify=true
+StartupWMClass=dev.danielmiguelt.Abaco
+Categories=Science;Math;Education;
+MimeType=application/x-abaco;
+Keywords=mathematics;maths;calculator;units;engineering;numerics;

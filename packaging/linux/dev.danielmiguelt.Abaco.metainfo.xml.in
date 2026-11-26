@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata (software centres). Template: package.sh substitutes @VERSION@ and @DATE@
+     from Cargo.toml and the build date. -->
+<component type="desktop-application">
+  <id>dev.danielmiguelt.Abaco</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT OR Apache-2.0</project_license>
+  <name>Ábaco</name>
+  <summary>Executable maths documents with units</summary>
+  <developer id="dev.danielmiguelt">
+    <name>Nodalia</name>
+  </developer>
+  <description>
+    <p>
+      Ábaco is a mathematics application built around executable documents: every number carries
+      its unit, and every cell recomputes when what it depends on changes.
+    </p>
+    <p>
+      It has an expression language with units, complex numbers, vectors and matrices, a cell
+      document with a dependency graph, and numerics of its own: linear algebra, roots,
+      quadrature and ordinary differential equations. Errors say where they are and what to
+      fix. It includes the abaco-cli command for the same documents in a terminal or a script.
+    </p>
+  </description>
+  <launchable type="desktop-id">dev.danielmiguelt.Abaco.desktop</launchable>
+  <icon type="stock">dev.danielmiguelt.Abaco</icon>
+  <!-- Only url types known to appstream 0.15 (Ubuntu 22.04, where CI validates): no vcs-browser. -->
+  <url type="homepage">https://getnodalia.com/abaco</url>
+  <url type="bugtracker">https://github.dev.danielmiguelt/abaco/issues</url>
+  <url type="help">https://github.dev.danielmiguelt/abaco</url>
+  <url type="contact">https://github.dev.danielmiguelt/abaco/issues</url>
+  <categories>
+    <category>Education</category>
+    <category>Science</category>
+    <category>Math</category>
+  </categories>
+  <keywords>
+    <keyword>mathematics</keyword>
+    <keyword>units</keyword>
+    <keyword>calculator</keyword>
+    <keyword>engineering</keyword>
+  </keywords>
+  <branding>
+    <color type="primary" scheme_preference="light">#e6a8c6</color>
+    <color type="primary" scheme_preference="dark">#7a2c56</color>
+  </branding>
+  <requires>
+    <display_length compare="ge">760</display_length>
+  </requires>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <provides>
+    <binary>abaco</binary>
+    <binary>abaco-cli</binary>
+    <mediatype>application/x-abaco</mediatype>
+  </provides>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="@VERSION@" date="@DATE@"/>
+  </releases>
+</component>
