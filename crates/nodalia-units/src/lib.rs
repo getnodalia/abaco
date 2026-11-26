@@ -24,6 +24,9 @@
 //! # Ok::<(), nodalia_units::UnitError>(())
 //! ```
 
+/// This crate's version, for the engine information a saved document records.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub mod constants;
 mod dimension;
 mod error;

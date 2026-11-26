@@ -19,6 +19,9 @@
 //! assert_eq!(r.value.unwrap().to_string(), "98.1 N");
 //! ```
 
+/// This crate's version, for the engine information a saved document records.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub mod ast;
 pub mod builtins;
 pub mod error;
