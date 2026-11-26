@@ -12,7 +12,7 @@ workflows, pinned by commit, plus the release-notes check.
 
 Engineering suite look through `nodalia_theme::engineering`, shared with Forja, Torno and Vortia;
 release workflows (`release-auto`, `release-linux`, `release-macos` with a DMG window in Ábaco's
-colour, `release-windows`) through Foundation's `release-tag` and `release-publish`; the app icon; website page getnodalia.com/abaco; a Nodalia Launcher catalog entry.
+colour, `release-windows`) through Foundation's `release-tag` and `release-publish`; website page getnodalia.com/abaco; a Nodalia Launcher catalog entry.
 
 ## Inherited dependencies still pending
 
@@ -26,8 +26,8 @@ None.
 
 ## NDL work pending
 
-- The app icon is an abacus drawn in code (`apps/abaco-app/src/icon.rs`, original work, in
-  `ATTRIBUTION.md`); the Engineering suite's own mark for it is still to come from nodalia-design.
+- The app icon is a portrait of John Napier (`assets/icons/`, made with `tools/app-portrait` in
+  nodalia-design).
 - `nodalia-update` (the in-app update check) is not wired in.
 - No release workflows, DMG window or Windows/macOS runs yet.
 
