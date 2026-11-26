@@ -12,6 +12,7 @@ dependencies = [
  "egui",
  "nodalia-theme",
  "nodalia-units",
+ "png",
  "pollster",
  "rfd",
  "serde",
