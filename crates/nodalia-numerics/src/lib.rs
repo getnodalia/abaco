@@ -5,14 +5,17 @@
 #![doc = include_str!("../README.md")]
 
 pub mod cholesky;
+pub mod control;
 pub mod eigen;
 pub mod error;
 pub mod fft;
 pub mod interp;
+pub mod ivp;
 pub mod lu;
 pub mod matfun;
 pub mod matrix;
 pub mod ode;
+pub mod optim;
 pub mod qr;
 pub mod quad;
 pub mod roots;

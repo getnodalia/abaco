@@ -17,11 +17,11 @@ functional, functional, validated (against analytic or published references), pr
 | Linear systems with sparse matrices, implicit ODE solvers | Planned (needed for stiff and large problems) |
 | Statistics, distributions, special functions | Functional in Ábaco Script (moments, quantiles, moving windows, normal/t/χ²/F/binomial/Poisson, incomplete gamma and beta); regression beyond `polyfit` planned |
 | Interpolation | Functional (`interp1`, `interp2`, splines, PCHIP, piecewise polynomials) |
-| Optimisation | Planned (next) |
+| Optimisation | Functional in Ábaco Script (Nelder–Mead, BFGS, Brent, Levenberg–Marquardt, simplex `linprog`); no constrained nonlinear solvers or quadratic programming yet |
 | Signals and filters | Functional (FFT of any length, `filter`, `filtfilt`, Butterworth/Chebyshev/FIR design, windows, spectra helpers) |
-| Control systems | Planned (next) |
+| Control systems (`tf`/`zpk`/`ss`, step/bode/nyquist/margin/rlocus, `place`, `lqr`, Riccati and Lyapunov, `c2d`) | Functional in the library (`nodalia-numerics::control`) and in Ábaco Script; verified against closed forms (first-order step, second-order overshoot, gain margin 6 of 1/(s(s+1)(s+2)), LQR of a double integrator, ZOH, Riccati/Lyapunov residuals); SISO interconnection only, no operator overloading |
 | Block-diagram modelling and simulation (Simulink-class) | Planned |
-| ODE/DAE solver suite (`ode45`, stiff solvers, events) | Planned; a single explicit solver exists in `nodalia-numerics` |
+| ODE/DAE solver suite (`ode45`, stiff solvers, events) | Partially functional: Dormand–Prince 5(4) and Rosenbrock (2,3) with dense output, events, backward integration and a constant mass matrix (index-1 DAEs); no variable-order BDF/Adams, no `ode15i`, no delay equations |
 | File I/O (CSV, MAT-like) | Planned |
 
 ## Next
