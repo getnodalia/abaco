@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Template: packaging/macos/package.sh substitutes @VERSION@ (full, e.g. 0.2.0-rc.1),
+     @SHORT_VERSION@ (numeric X.Y.Z) and @BUILD_SHA@. -->
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <!-- The interface is English and Spanish, embedded in Rust; declare both for AppKit's own
+       dialogs (open and save panels). Keep in sync with the languages in apps/abaco-app. -->
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>es</string>
+  </array>
+  <key>CFBundleDisplayName</key>
+  <string>Ábaco</string>
+  <key>CFBundleName</key>
+  <string>Abaco</string>
+  <key>CFBundleExecutable</key>
+  <string>Abaco</string>
+  <key>CFBundleIdentifier</key>
+  <string>dev.danielmiguelt.Abaco</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleSignature</key>
+  <string>????</string>
+  <key>CFBundleShortVersionString</key>
+  <string>@SHORT_VERSION@</string>
+  <key>CFBundleVersion</key>
+  <string>@SHORT_VERSION@</string>
+  <key>AbacoVersion</key>
+  <string>@VERSION@</string>
+  <key>AbacoBuildCommit</key>
+  <string>@BUILD_SHA@</string>
+  <key>CFBundleIconFile</key>
+  <string>Abaco</string>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.education</string>
+  <!-- Must match MACOSX_DEPLOYMENT_TARGET in package.sh. Big Sur is the first release on Apple
+       silicon and has the Metal feature set the renderer's GPU backends target. -->
+  <key>LSMinimumSystemVersion</key>
+  <string>11.0</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSSupportsAutomaticGraphicsSwitching</key>
+  <true/>
+  <key>NSRequiresAquaSystemAppearance</key>
+  <false/>
+  <key>NSHumanReadableCopyright</key>
+  <string>Copyright © the Ábaco authors. MIT OR Apache-2.0.</string>
+
+  <!-- No CFBundleDocumentTypes: the app takes files on its command line and from its own Open
+       dialog, but does not yet answer the Apple event Finder sends for a double-click, so it must
+       not claim to be the handler. Add them together with that event handler. -->
+
+  <!-- .abaco: a JSON file, declared as a document so Finder gives it Ábaco's icon and a name. -->
+  <key>UTExportedTypeDeclarations</key>
+  <array>
+    <dict>
+      <key>UTTypeIdentifier</key>
+      <string>dev.danielmiguelt.Abaco.document</string>
+      <key>UTTypeDescription</key>
+      <string>Ábaco Document</string>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.data</string>
+        <string>public.content</string>
+      </array>
+      <key>UTTypeIconFile</key>
+      <string>Abaco</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array><string>abaco</string></array>
+        <key>public.mime-type</key>
+        <array><string>application/x-abaco</string></array>
+      </dict>
+    </dict>
+  </array>
+</dict>
+</plist>

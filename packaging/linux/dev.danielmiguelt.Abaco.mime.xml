@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-abaco">
+    <comment>Ábaco document</comment>
+    <comment xml:lang="es">Documento de Ábaco</comment>
+    <icon name="dev.danielmiguelt.Abaco"/>
+    <glob pattern="*.abaco"/>
+  </mime-type>
+</mime-info>
