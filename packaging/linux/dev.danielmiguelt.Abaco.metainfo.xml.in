@@ -26,9 +26,9 @@
   <icon type="stock">dev.danielmiguelt.Abaco</icon>
   <!-- Only url types known to appstream 0.15 (Ubuntu 22.04, where CI validates): no vcs-browser. -->
   <url type="homepage">https://getnodalia.com/abaco</url>
-  <url type="bugtracker">https://github.dev.danielmiguelt/abaco/issues</url>
-  <url type="help">https://github.dev.danielmiguelt/abaco</url>
-  <url type="contact">https://github.dev.danielmiguelt/abaco/issues</url>
+  <url type="bugtracker">https://github.com/getnodalia/abaco/issues</url>
+  <url type="help">https://github.com/getnodalia/abaco</url>
+  <url type="contact">https://github.com/getnodalia/abaco/issues</url>
   <categories>
     <category>Education</category>
     <category>Science</category>
