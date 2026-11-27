@@ -9,6 +9,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+abaco-formats = { path = "../abaco-formats" }
 nodalia-numerics = { path = "../nodalia-numerics" }
 serde = { workspace = true }
 serde_json = { workspace = true }
