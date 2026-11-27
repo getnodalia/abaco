@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-//! The app icon: John Napier of Merchiston, who invented logarithms and the
-//! calculating rods called Napier's bones, from his 1616 portrait (public domain), in black and white on
+//! The app icon: Carl Friedrich Gauss, who put the calculation of orbits and errors on exact ground,
+//! from C. A. Jensen's 1840 portrait (public domain), in black and white on
 //! Ábaco's plum, `#A23B72`. The PNGs are `assets/icons/hicolor/*/apps/`; the same pixels are
 //! the window icon, the logo in the title bar and the mark on the About page.
 
