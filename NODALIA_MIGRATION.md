@@ -31,7 +31,7 @@ None.
 
 ## NDL work pending
 
-- The app icon is a portrait of John Napier (`assets/icons/`, made with `tools/app-portrait` in
+- The app icon is a portrait of Carl Friedrich Gauss (`assets/icons/`, made with `tools/app-portrait` in
   nodalia-design); `assets/app-icon/` (.ico, .icns) is built from it by `packaging/icons.sh`.
 - `nodalia-update` (the in-app update check) is not wired in.
 - The macOS DMG and the Windows MSI and zip have not been built: the workflows and scripts exist
