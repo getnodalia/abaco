@@ -345,7 +345,13 @@ fn blocks_ribbon(ui: &mut Ui, look: &Look, app: &App, cmds: &mut Vec<Cmd>) {
     ui.horizontal_top(|ui| {
         ui.spacing_mut().item_spacing.x = 2.0;
         eng::ribbon_group(ui, look, tr("Diagram"), |ui| {
-            for cmd in [Cmd::NewBlank, Cmd::Open, Cmd::Save, Cmd::BlocksExample] {
+            for cmd in [
+                Cmd::NewBlank,
+                Cmd::Open,
+                Cmd::Save,
+                Cmd::ExportSimulink,
+                Cmd::BlocksExample,
+            ] {
                 tool(ui, cmd, true, cmds, false);
             }
         });
@@ -403,6 +409,7 @@ fn short_label(cmd: Cmd) -> &'static str {
         Cmd::StopBlocks => tr("Stop"),
         Cmd::DeleteBlock => tr("Delete"),
         Cmd::BlocksExample => tr("Example"),
+        Cmd::ExportSimulink => tr("Simulink"),
         Cmd::RunScript => tr("Run"),
         Cmd::StopScript => tr("Stop"),
         Cmd::ClearWorkspace => tr("Variables"),

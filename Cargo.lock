@@ -9,6 +9,7 @@ dependencies = [
  "abaco-blocks",
  "abaco-doc",
  "abaco-expr",
+ "abaco-formats",
  "abaco-script",
  "eframe",
  "egui",

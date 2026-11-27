@@ -20,6 +20,7 @@ path = "src/main.rs"
 [dependencies]
 abaco-blocks = { path = "../../crates/abaco-blocks" }
 abaco-doc = { path = "../../crates/abaco-doc" }
+abaco-formats = { path = "../../crates/abaco-formats" }
 abaco-expr = { path = "../../crates/abaco-expr" }
 abaco-script = { path = "../../crates/abaco-script" }
 nodalia-units = { path = "../../crates/nodalia-units" }

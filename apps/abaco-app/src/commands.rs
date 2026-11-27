@@ -39,6 +39,7 @@ pub enum Cmd {
     StopBlocks,
     DeleteBlock,
     BlocksExample,
+    ExportSimulink,
     CommandSearch,
     Preferences,
     KeyboardShortcuts,
@@ -92,7 +93,7 @@ const fn shortcut(command: bool, shift: bool, alt: bool, key: Key) -> Option<Key
 }
 
 impl Cmd {
-    pub const ALL: [Cmd; 35] = [
+    pub const ALL: [Cmd; 36] = [
         Cmd::NewBlank,
         Cmd::OpenSample,
         Cmd::Open,
@@ -124,6 +125,7 @@ impl Cmd {
         Cmd::StopBlocks,
         Cmd::DeleteBlock,
         Cmd::BlocksExample,
+        Cmd::ExportSimulink,
         Cmd::CommandSearch,
         Cmd::Preferences,
         Cmd::KeyboardShortcuts,
@@ -164,6 +166,7 @@ impl Cmd {
             Cmd::StopBlocks => "blocks.stop",
             Cmd::DeleteBlock => "blocks.delete",
             Cmd::BlocksExample => "blocks.example",
+            Cmd::ExportSimulink => "blocks.export-simulink",
             Cmd::CommandSearch => "app.search",
             Cmd::Preferences => "app.preferences",
             Cmd::KeyboardShortcuts => "app.shortcuts",
@@ -209,6 +212,7 @@ impl Cmd {
             Cmd::StopBlocks => "Stop the simulation",
             Cmd::DeleteBlock => "Delete the selection",
             Cmd::BlocksExample => "Open the example diagram",
+            Cmd::ExportSimulink => "Export as a Simulink model…",
             Cmd::CommandSearch => "Search commands",
             Cmd::Preferences => "Preferences",
             Cmd::KeyboardShortcuts => "Keyboard shortcuts",
@@ -246,9 +250,11 @@ impl Cmd {
             | Cmd::ClearWorkspace
             | Cmd::ClearCommandWindow
             | Cmd::CloseFigures => Category::Script,
-            Cmd::RunBlocks | Cmd::StopBlocks | Cmd::DeleteBlock | Cmd::BlocksExample => {
-                Category::Blocks
-            }
+            Cmd::RunBlocks
+            | Cmd::StopBlocks
+            | Cmd::DeleteBlock
+            | Cmd::BlocksExample
+            | Cmd::ExportSimulink => Category::Blocks,
             Cmd::CommandSearch | Cmd::Preferences | Cmd::KeyboardShortcuts | Cmd::About => {
                 Category::Help
             }
@@ -289,6 +295,7 @@ impl Cmd {
             Cmd::StopBlocks => "stop",
             Cmd::DeleteBlock => "delete",
             Cmd::BlocksExample => "book",
+            Cmd::ExportSimulink => "save-as",
             Cmd::CommandSearch => "search",
             Cmd::Preferences => "settings",
             Cmd::KeyboardShortcuts => "keyboard",
