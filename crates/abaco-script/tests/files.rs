@@ -379,3 +379,49 @@ fn damaged_mat_files_are_errors() {
     assert!(i.run(&format!("load('{f}')")).is_err());
     let _ = std::fs::remove_dir_all(&d);
 }
+
+#[test]
+fn function_files_are_found_on_the_path() {
+    let d = dir("mfunc");
+    std::fs::write(
+        d.join("twice.m"),
+        "function r = twice(q)\n  r = 2*helper(q);\nend\nfunction h = helper(x)\n  h = x;\nend\n",
+    )
+    .unwrap();
+    let mut i = open();
+    let p = d.to_string_lossy().replace('\\', "/");
+    run(
+        &mut i,
+        &format!("addpath('{p}');\nr = twice(4);\ne = exist('twice');"),
+    );
+    assert_eq!(real(&i, "r"), vec![8.0]);
+    assert_eq!(real(&i, "e"), vec![2.0]);
+    run(&mut i, &format!("rmpath('{p}');"));
+    assert!(i.run("twice(1)").is_err());
+}
+
+#[test]
+fn script_files_run_in_the_callers_workspace() {
+    let d = dir("mscript");
+    std::fs::write(d.join("setup.m"), "k = 41;\nk = k + 1;\n").unwrap();
+    let mut i = open();
+    let p = d.to_string_lossy().replace('\\', "/");
+    run(&mut i, &format!("addpath('{p}');\nsetup\nz = k;"));
+    assert_eq!(real(&i, "z"), vec![42.0]);
+    run(&mut i, "clear k;");
+    run(&mut i, &format!("run('{}');\ny = k;", path(&d, "setup.m")));
+    assert_eq!(real(&i, "y"), vec![42.0]);
+}
+
+#[test]
+fn a_broken_m_file_names_itself_and_off_means_off() {
+    let d = dir("mbad");
+    std::fs::write(d.join("broken.m"), "function r = broken(\n").unwrap();
+    let mut i = open();
+    let p = d.to_string_lossy().replace('\\', "/");
+    run(&mut i, &format!("addpath('{p}');"));
+    let e = i.run("broken(1)").unwrap_err();
+    assert!(e.message.contains("broken.m"), "{}", e.message);
+    let mut off = Interp::new();
+    assert!(off.run(&format!("addpath('{p}'); broken(1)")).is_err());
+}

@@ -10,6 +10,7 @@ use crate::ops;
 use crate::parser::parse;
 use crate::value::{Arr, FnValue, StructV, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
@@ -156,6 +157,8 @@ pub struct Interp {
     /// Figures drawn by plotting commands.
     pub figures: crate::plot::Figures,
     stack_base: usize,
+    search_path: Vec<PathBuf>,
+    file_funcs: HashSet<String>,
 }
 
 impl Default for Interp {
@@ -193,6 +196,8 @@ impl Interp {
             last_error: None,
             figures: crate::plot::Figures::default(),
             stack_base: 0,
+            search_path: Vec::new(),
+            file_funcs: HashSet::new(),
         }
     }
 
@@ -279,6 +284,14 @@ impl Interp {
             f.vars.clear();
         }
         self.globals.clear();
+        self.forget_file_funcs();
+    }
+
+    /// Functions loaded from `.m` files are read again the next time they are called.
+    fn forget_file_funcs(&mut self) {
+        for name in std::mem::take(&mut self.file_funcs) {
+            self.funcs.remove(&name);
+        }
     }
 
     /// The variables of the current workspace, sorted by name.
@@ -1070,7 +1083,154 @@ impl Interp {
         if let Some(r) = builtins::call(self, name, &args, nargout)? {
             return Ok(r);
         }
+        if let Some(path) = self.find_m_file(name) {
+            return self.call_m_file(name, &path, args, nargout);
+        }
         err("Abaco:undefined", format!("`{name}` is not defined"))
+    }
+
+    // ---------- `.m` files on the search path ----------
+
+    /// The folders searched for `name.m` after the current folder.
+    pub fn search_path(&self) -> &[PathBuf] {
+        &self.search_path
+    }
+
+    /// Adds a folder to the search path (at the front, or the end).
+    pub fn add_path(&mut self, dir: PathBuf, front: bool) {
+        self.forget_file_funcs();
+        self.search_path.retain(|d| *d != dir);
+        if front {
+            self.search_path.insert(0, dir);
+        } else {
+            self.search_path.push(dir);
+        }
+    }
+
+    /// Removes a folder from the search path; `false` when it was not there.
+    pub fn remove_path(&mut self, dir: &Path) -> bool {
+        self.forget_file_funcs();
+        let before = self.search_path.len();
+        self.search_path.retain(|d| d != dir);
+        self.search_path.len() != before
+    }
+
+    /// `name.m` in the current folder or on the search path, when the host allows files.
+    pub fn find_m_file(&self, name: &str) -> Option<PathBuf> {
+        let valid = name.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
+            && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+            && name.len() <= 63;
+        if !self.limits.files || !valid {
+            return None;
+        }
+        let file = format!("{name}.m");
+        std::iter::once(PathBuf::from("."))
+            .chain(self.search_path.iter().cloned())
+            .map(|d| d.join(&file))
+            .find(|p| p.is_file())
+    }
+
+    fn read_m_file(path: &Path) -> Result<String> {
+        const MAX_M_BYTES: u64 = 8 * 1024 * 1024;
+        let shown = path.display();
+        let meta = std::fs::metadata(path)
+            .map_err(|e| Error::new("Abaco:file", format!("cannot read `{shown}`: {e}")))?;
+        if meta.len() > MAX_M_BYTES {
+            return err("Abaco:limit", format!("`{shown}` is larger than 8 MB"));
+        }
+        let bytes = std::fs::read(path)
+            .map_err(|e| Error::new("Abaco:file", format!("cannot read `{shown}`: {e}")))?;
+        let text = String::from_utf8_lossy(&bytes).into_owned();
+        Ok(text.strip_prefix('\u{feff}').unwrap_or(&text).to_string())
+    }
+
+    /// Parses a file, naming the file and the place in it when the syntax is wrong (the span of
+    /// the error belongs to that file, not to the source being run).
+    fn parse_file(path: &Path, text: &str) -> Result<Program> {
+        parse(text).map_err(|e| match e.span {
+            Some(sp) => {
+                let upto = text.get(..sp.start.min(text.len())).unwrap_or("");
+                let line = upto.matches('\n').count() + 1;
+                let col = upto.len() - upto.rfind('\n').map_or(0, |i| i + 1) + 1;
+                Error::new(
+                    &e.id,
+                    format!(
+                        "{} (line {line}, column {col}): {}",
+                        path.display(),
+                        e.message
+                    ),
+                )
+            }
+            None => Error::new(&e.id, format!("{}: {}", path.display(), e.message)),
+        })
+    }
+
+    /// Runs a script file in the current workspace.
+    pub fn run_script_file(&mut self, path: &Path) -> Result<()> {
+        if !self.limits.files {
+            return err(
+                "Abaco:files",
+                "this run is not allowed to read or write files",
+            );
+        }
+        let text = Self::read_m_file(path)?;
+        let program = Self::parse_file(path, &text)?;
+        self.exec_program(&program)
+    }
+
+    /// Calls `name` from `name.m`: a function file (its first function is `name`, the others are
+    /// available once it is loaded) or a script, which runs in the caller's workspace.
+    fn call_m_file(
+        &mut self,
+        name: &str,
+        path: &Path,
+        args: Vec<Value>,
+        nargout: usize,
+    ) -> Result<Vec<Value>> {
+        let text = Self::read_m_file(path)?;
+        let program = Self::parse_file(path, &text)?;
+        let first = program.stmts.iter().find_map(|s| match &s.kind {
+            StmtKind::Func(f) => Some(f.clone()),
+            _ => None,
+        });
+        let is_function_file = matches!(
+            program.stmts.first().map(|s| &s.kind),
+            Some(StmtKind::Func(_))
+        );
+        if !is_function_file {
+            if !args.is_empty() || nargout > 0 {
+                return err(
+                    "Abaco:call",
+                    format!(
+                        "`{name}` is a script file ({}); it takes no arguments and returns nothing",
+                        path.display()
+                    ),
+                );
+            }
+            self.exec_program(&program)?;
+            return Ok(vec![]);
+        }
+        let Some(main) = first else {
+            return err(
+                "Abaco:call",
+                format!("`{}` defines no function", path.display()),
+            );
+        };
+        for s in &program.stmts {
+            if let StmtKind::Func(f) = &s.kind {
+                if !self.funcs.contains_key(&f.name) {
+                    self.funcs.insert(f.name.clone(), f.clone());
+                    self.file_funcs.insert(f.name.clone());
+                }
+            }
+        }
+        // The file's name is the function's name, whatever the first line says.
+        let mut def = (*main).clone();
+        def.name = name.to_string();
+        let def = Arc::new(def);
+        self.funcs.insert(name.to_string(), def.clone());
+        self.file_funcs.insert(name.to_string());
+        self.call_user(&def, args, nargout)
     }
 
     /// Calls a function handle.

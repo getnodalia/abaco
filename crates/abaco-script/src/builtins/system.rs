@@ -325,6 +325,8 @@ fn f_exist(i: &mut Interp, a: &[Value], _: usize) -> Out {
     let name = str_arg(a, 0, "exist")?;
     let code = if i.get(name).is_some() && !is_flag(a, 1, "builtin") {
         1.0
+    } else if i.find_m_file(name).is_some() {
+        2.0
     } else if i.has_function(name) {
         103.0
     } else if super::lookup(name).is_some() {
@@ -362,6 +364,112 @@ fn f_clear(i: &mut Interp, a: &[Value], _: usize) -> Out {
         .map(|v| v.as_str("a name for `clear`").map(String::from))
         .collect();
     i.run_command("clear", &names?)?;
+    Ok(vec![])
+}
+
+fn dir_args(a: &[Value], who: &str) -> Result<(Vec<std::path::PathBuf>, bool)> {
+    let (mut dirs, mut front) = (Vec::new(), true);
+    for v in a {
+        let s = v.as_str(&format!("a folder name for `{who}`"))?;
+        match s {
+            "-end" | "-END" => front = false,
+            "-begin" | "-BEGIN" => front = true,
+            _ => dirs.extend(
+                s.split(if cfg!(windows) { ';' } else { ':' })
+                    .filter(|d| !d.is_empty())
+                    .map(std::path::PathBuf::from),
+            ),
+        }
+    }
+    Ok((dirs, front))
+}
+
+fn f_addpath(i: &mut Interp, a: &[Value], _: usize) -> Out {
+    if !i.files_allowed() {
+        return err(
+            "Abaco:files",
+            "`addpath`: this run is not allowed to read or write files",
+        );
+    }
+    arity(a, 1, usize::MAX, "addpath")?;
+    let (dirs, front) = dir_args(a, "addpath")?;
+    for d in &dirs {
+        if !d.is_dir() {
+            return err(
+                "Abaco:file",
+                format!("`addpath`: `{}` is not a folder", d.display()),
+            );
+        }
+    }
+    for d in dirs.into_iter().rev() {
+        i.add_path(d, front);
+    }
+    Ok(vec![])
+}
+
+fn f_rmpath(i: &mut Interp, a: &[Value], _: usize) -> Out {
+    arity(a, 1, usize::MAX, "rmpath")?;
+    let (dirs, _) = dir_args(a, "rmpath")?;
+    for d in dirs {
+        if !i.remove_path(&d) {
+            i.warn(format!("rmpath: `{}` was not on the path", d.display()));
+        }
+    }
+    Ok(vec![])
+}
+
+fn f_path(i: &mut Interp, _: &[Value], _: usize) -> Out {
+    let list: Vec<String> = i
+        .search_path()
+        .iter()
+        .map(|d| d.display().to_string())
+        .collect();
+    one(Value::text(list.join(if cfg!(windows) {
+        ";"
+    } else {
+        ":"
+    })))
+}
+
+fn f_pwd(i: &mut Interp, _: &[Value], _: usize) -> Out {
+    if !i.files_allowed() {
+        return err(
+            "Abaco:files",
+            "`pwd`: this run is not allowed to read or write files",
+        );
+    }
+    match std::env::current_dir() {
+        Ok(d) => one(Value::text(d.display().to_string())),
+        Err(e) => err("Abaco:file", format!("`pwd`: {e}")),
+    }
+}
+
+/// `run('file')` runs a script file (`.m` added when the name has no extension) in the current
+/// workspace.
+fn f_run(i: &mut Interp, a: &[Value], _: usize) -> Out {
+    arity(a, 1, 1, "run")?;
+    let name = str_arg(a, 0, "run")?;
+    let mut path = std::path::PathBuf::from(name);
+    if path.extension().is_none() {
+        path.set_extension("m");
+    }
+    if !path.is_file() {
+        let found = i
+            .search_path()
+            .iter()
+            .map(|d| d.join(&path))
+            .find(|p| p.is_file());
+        match found {
+            Some(p) => path = p,
+            None => {
+                return err(
+                    "Abaco:file",
+                    format!("`run`: cannot find `{}`", path.display()),
+                )
+            }
+        }
+    }
+    i.run_script_file(&path)?;
     Ok(vec![])
 }
 
@@ -537,7 +645,12 @@ pub const TABLE: &[(&str, Bf)] = &[
     ("error", f_error),
     ("eval", f_eval),
     ("evalc", f_evalc),
+    ("addpath", f_addpath),
     ("exist", f_exist),
+    ("path", f_path),
+    ("pwd", f_pwd),
+    ("rmpath", f_rmpath),
+    ("run", f_run),
     ("fflush", f_noop),
     ("format", f_format),
     ("input", f_input),
