@@ -69,7 +69,9 @@ fn attr_text(attrs: &[Attr], name: &str) -> Option<String> {
         Dtype::Fixed { size: 2, le, .. } => {
             let u: Vec<u16> = a
                 .data
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|c| read_uint(c, 2, *le) as u16)
                 .take_while(|&c| c != 0)
                 .collect();
@@ -115,8 +117,10 @@ fn field_names(ctx: &Ctx, attrs: &[Attr]) -> Result<Option<Vec<String>>> {
         let bytes = ctx.f.global_heap_object(addr, index)?;
         let name = if base.size() == 2 {
             let u: Vec<u16> = bytes
-                .chunks_exact(2)
-                .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|c| u16::from_le_bytes(*c))
                 .collect();
             String::from_utf16_lossy(&u)
         } else {
