@@ -17,5 +17,10 @@ pub mod deflate;
 pub mod error;
 pub mod hdf5;
 pub mod mat;
+pub mod mdl;
+pub mod simulink;
+pub mod slx;
+pub mod xml;
+pub mod zip;
 
 pub use error::{FormatError, Result};
