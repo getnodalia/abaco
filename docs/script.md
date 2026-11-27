@@ -36,11 +36,11 @@ coexist. Units inside scripts are planned.
 
 | Area | Functions |
 |---|---|
-| Creation | `zeros ones eye rand randn randi randperm rng linspace logspace colon meshgrid ndgrid magic toeplitz vander hilb diag triu tril kron repmat reshape cat horzcat vertcat circshift flip* rot90` |
+| Creation | `zeros ones eye rand randn randi randperm rng linspace logspace colon meshgrid ndgrid magic toeplitz hankel vander hilb pascal wilkinson compan blkdiag perms diag triu tril kron repmat reshape cat horzcat vertcat circshift flip* rot90` |
 | Elementwise maths | trigonometric and hyperbolic (and inverses, degree variants), `exp log log2 log10 sqrt abs sign floor ceil round fix mod rem hypot atan2 nthroot gamma lgamma erf erfc factorial nchoosek gcd lcm isprime primes factor`, complex parts |
-| Reductions | `sum prod mean median mode var std range min max cumsum cumprod cummax cummin diff dot cross trapz cumtrapz any all find nnz sort sortrows unique histc cov corrcoef prctile` |
+| Reductions | `accumarray gradient sum prod mean median mode var std range min max cumsum cumprod cummax cummin diff dot cross trapz cumtrapz any all find nnz sort sortrows unique histc cov corrcoef prctile` |
 | Linear algebra | `det inv \ linsolve trace rank pinv null orth cond rcond norm svd eig chol lu qr expm issymmetric` |
-| Polynomials | `roots poly polyval polyfit polyder polyint conv deconv` |
+| Polynomials | `roots poly polyval polyfit polyder polyint conv deconv conv2` |
 | Fourier and filtering | `fft ifft fft2 ifft2 fftshift ifftshift nextpow2 filter filtfilt freqz xcorr findpeaks detrend unwrap sinc` |
 | Filter design and windows | `butter cheby1 fir1 hamming hann bartlett blackman kaiser rectwin` |
 | Interpolation | `interp1 interp2 spline pchip ppval mkpp` |
@@ -52,7 +52,7 @@ coexist. Units inside scripts are planned.
 | Control systems | `tf zpk ss tfdata zpkdata ssdata tf2ss ss2tf pole zero pzmap damp dcgain isstable evalfr freqresp series parallel feedback pid c2d ctrb obsv step impulse initial lsim stepinfo bode nyquist margin rlocus place lqr dlqr care dare lyap dlyap` |
 | Text | `sprintf printf fprintf disp display num2str int2str mat2str str2double str2num upper lower strtrim strrep strsplit strjoin strcat strtok strcmp strcmpi strncmp contains startsWith endsWith strfind regexp regexpi regexprep dec2bin bin2dec dec2hex hex2dec` |
 | Cells and structs | `cell struct fieldnames isfield rmfield getfield setfield struct2cell cell2struct num2cell cell2mat deal cellfun arrayfun structfun isequal isequaln ismember union intersect setdiff setxor` |
-| Files | `readmatrix writematrix csvread csvwrite dlmread dlmwrite fileread isfile save load` |
+| Files | `readmatrix writematrix csvread csvwrite dlmread dlmwrite fileread isfile save load addpath rmpath path pwd run` |
 | Indices | `sub2ind ind2sub` |
 | System | `error warning assert rethrow MException lasterr tic toc clock now cputime eval evalc exist isvarname who format bitand bitor bitxor bitshift intmax intmin` |
 | Plots (recorded) | `plot plot3 scatter stem stairs bar hist semilogx semilogy loglog surf mesh contour imagesc fplot title xlabel ylabel zlabel legend grid axis xlim ylim hold figure close clf cla subplot` |
@@ -113,13 +113,25 @@ chemistry (`tests/optode.rs`), a textbook linear program, a falling ball stopped
 * Files: `readmatrix`, `writematrix`, `csvread`, `csvwrite`, `dlmread`, `dlmwrite` (delimited text; headers
   are skipped, empty or non-numeric fields read as NaN; numbers are written so they read back exactly),
   `fileread`, and `save`/`load`. `save(file, 'a', 'b')` writes the named variables (all when none are
-  named) to a text file of Ábaco's own (`.abd`, added when the name has no extension; it is not a MAT file
-  and MATLAB cannot read it). It holds numbers, complex numbers, logicals, text, cells, structs and named
-  handles; an anonymous function holds what it captured, so it is skipped with a warning. `load` restores
-  such a file (`S = load(file)` returns a struct instead) or reads a text file of numbers into a variable
-  named after the file. Both are function calls only: `save file x` is not command syntax. There is no
-  `fopen`/`fgetl`/`fwrite`, no `readtable`, no MAT, Excel or image files and no network functions;
+  named) to a MAT-file, level 7 by default (`.mat` is added when the name has no extension), and MATLAB
+  reads it. `-v4`, `-v6`, `-v7`, `-v7.3` (HDF5), `-append` and `-nocompression` are accepted; a file whose
+  name ends in `.abd` keeps Ábaco's older text format. `load` detects a MAT-file by its signature or its
+  extension (`-mat` forces it, `-ascii` reads a text file of numbers); `S = load(file)` returns a struct,
+  and `load(file, 'a')` picks variables. Real and complex doubles, logicals, text, cells and scalar
+  structs round-trip. What the language cannot hold is said, never dropped silently: other numeric
+  classes are widened to double, character matrices become a cell column of strings, struct arrays a
+  cell of structs, sparse matrices full ones, and N-d arrays, objects and function handles are left out
+  with a warning. Integers wider than 53 bits lose precision, and `-v7.3` data is written uncompressed
+  and with variables in name order. Both are function calls only: `save file x` is not command syntax.
+  There is no `fopen`/`fgetl`/`fwrite`, no `readtable`, no Excel or image files and no network functions;
   `input` and `keyboard` are refused. `pause` never blocks.
+* Function files: a call to a name that is not defined looks for `name.m` in the current folder and then on
+  the search path (`addpath`, `rmpath`, `path`, `pwd`; `exist` answers 2 for such a file). The first
+  function in the file is the one named by the file, the others are local helpers. A script file runs
+  in the caller's workspace (`name`, or `run('dir/name.m')`) and cannot take arguments or return values.
+  Errors name the file, line and column. Only with files enabled (the app and the CLI do; a host
+  embedding the interpreter turns them off), files over 8 MB are refused, and clearing the workspace
+  or changing the path makes the next call read the file again.
 * No units, classes, packages or `containers.Map`.
 * Random streams are xoshiro256++; they are reproducible with `rng(seed)` but do not match MATLAB's.
 

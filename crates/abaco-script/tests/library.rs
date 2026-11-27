@@ -374,3 +374,104 @@ fn system_functions() {
     );
     assert_eq!(out("try, assert(false, 'My:id', 'nope %d', 3); catch e, printf('%s %s', e.identifier, e.message); end"), "My:id nope 3");
 }
+
+fn eval_real(src: &str) -> Vec<f64> {
+    let mut i = Interp::new();
+    i.run(src).unwrap_or_else(|e| panic!("{}", e.render(src)));
+    i.get("r").unwrap().to_real().unwrap().d
+}
+
+#[test]
+fn special_matrices_match_their_definitions() {
+    // column-major data
+    assert_eq!(
+        eval_real("r = blkdiag([1 2], 3);"),
+        vec![1.0, 0.0, 2.0, 0.0, 0.0, 3.0]
+    );
+    assert_eq!(
+        eval_real("r = hankel([1 2 3]);"),
+        vec![1.0, 2.0, 3.0, 2.0, 3.0, 0.0, 3.0, 0.0, 0.0]
+    );
+    assert_eq!(
+        eval_real("r = hankel([1 2], [2 5 6]);"),
+        vec![1.0, 2.0, 2.0, 5.0, 5.0, 6.0]
+    );
+    assert_eq!(
+        eval_real("r = pascal(3);"),
+        vec![1.0, 1.0, 1.0, 1.0, 2.0, 3.0, 1.0, 3.0, 6.0]
+    );
+    assert_eq!(
+        eval_real("r = wilkinson(3);"),
+        vec![1.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 1.0]
+    );
+    // the eigenvalues of the companion matrix are the roots of the polynomial
+    assert_eq!(
+        eval_real("r = compan([1 -3 2]);"),
+        vec![3.0, 1.0, -2.0, 0.0]
+    );
+    let roots = eval_real("r = sort(eig(compan([1 -6 11 -6])))';");
+    for (got, want) in roots.iter().zip([1.0, 2.0, 3.0]) {
+        assert!((got - want).abs() < 1e-12, "{roots:?}");
+    }
+}
+
+#[test]
+fn perms_accumarray_gradient_and_conv2() {
+    // MATLAB's order: reverse lexicographic by position
+    assert_eq!(
+        eval_real("r = perms([1 2 3]);"),
+        vec![
+            3.0, 3.0, 2.0, 2.0, 1.0, 1.0, 2.0, 1.0, 3.0, 1.0, 3.0, 2.0, 1.0, 2.0, 1.0, 3.0, 2.0,
+            3.0
+        ]
+    );
+    assert_eq!(
+        eval_real("r = accumarray([1;2;1;3], [10;20;30;40]);"),
+        vec![40.0, 20.0, 40.0]
+    );
+    assert_eq!(
+        eval_real("r = accumarray([1 1; 2 2; 1 1], 5);"),
+        vec![10.0, 0.0, 0.0, 5.0]
+    );
+    assert_eq!(
+        eval_real("r = gradient([1 4 9 16], 1);"),
+        vec![3.0, 4.0, 6.0, 7.0]
+    );
+    assert_eq!(
+        eval_real("r = gradient([0 1 4 9], 0.5);"),
+        vec![2.0, 4.0, 8.0, 10.0]
+    );
+    assert_eq!(
+        eval_real("[gx, gy] = gradient([1 2 4; 2 4 8]); r = [gx(:); gy(:)]';").len(),
+        12
+    );
+    assert_eq!(
+        eval_real("r = conv2([1 2; 3 4], [1 1; 1 1]);"),
+        vec![1.0, 4.0, 3.0, 3.0, 10.0, 7.0, 2.0, 6.0, 4.0]
+    );
+    assert_eq!(
+        eval_real("r = conv2([1 2 3; 4 5 6; 7 8 9], [1 1; 1 1], 'valid');"),
+        vec![12.0, 24.0, 16.0, 28.0]
+    );
+    assert_eq!(
+        eval_real("r = conv2([1 2 3; 4 5 6; 7 8 9], ones(3), 'same');")[4],
+        45.0
+    );
+}
+
+#[test]
+fn the_new_functions_refuse_bad_input() {
+    for src in [
+        "perms(1:11)",
+        "accumarray([0; 1], [1; 2])",
+        "accumarray([1; 2], [1; 2; 3])",
+        "gradient([1 2 3], 0)",
+        "realsqrt(-1)",
+        "conv2([1 2], [1], 'cubic')",
+        "pascal(1e6)",
+        "wilkinson(1e6)",
+    ] {
+        let mut i = Interp::new();
+        assert!(i.run(src).is_err(), "{src}");
+    }
+}

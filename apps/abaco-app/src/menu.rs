@@ -97,6 +97,8 @@ pub fn tree() -> Vec<(&'static str, Vec<Entry>)> {
                 some(DeleteBlock),
                 None,
                 some(BlocksExample),
+                None,
+                some(ExportSimulink),
             ]),
         ),
     ]

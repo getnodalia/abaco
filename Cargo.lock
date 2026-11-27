@@ -4,11 +4,12 @@ version = 4
 
 [[package]]
 name = "abaco-app"
-version = "0.3.0-dev"
+version = "0.3.0"
 dependencies = [
  "abaco-blocks",
  "abaco-doc",
  "abaco-expr",
+ "abaco-formats",
  "abaco-script",
  "eframe",
  "egui",
@@ -28,8 +29,9 @@ dependencies = [
 
 [[package]]
 name = "abaco-blocks"
-version = "0.3.0-dev"
+version = "0.3.0"
 dependencies = [
+ "abaco-formats",
  "nodalia-numerics",
  "proptest",
  "serde",
@@ -39,11 +41,12 @@ dependencies = [
 
 [[package]]
 name = "abaco-cli"
-version = "0.3.0-dev"
+version = "0.3.0"
 dependencies = [
  "abaco-blocks",
  "abaco-doc",
  "abaco-expr",
+ "abaco-formats",
  "abaco-script",
  "nodalia-units",
  "serde_json",
@@ -51,7 +54,7 @@ dependencies = [
 
 [[package]]
 name = "abaco-doc"
-version = "0.3.0-dev"
+version = "0.3.0"
 dependencies = [
  "abaco-expr",
  "nodalia-units",
@@ -63,7 +66,7 @@ dependencies = [
 
 [[package]]
 name = "abaco-expr"
-version = "0.3.0-dev"
+version = "0.3.0"
 dependencies = [
  "nodalia-numerics",
  "nodalia-units",
@@ -74,9 +77,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "abaco-script"
-version = "0.3.0-dev"
+name = "abaco-formats"
+version = "0.3.0"
 dependencies = [
+ "proptest",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "abaco-script"
+version = "0.3.0"
+dependencies = [
+ "abaco-formats",
  "nodalia-numerics",
  "num-complex",
  "proptest",
@@ -1852,7 +1864,7 @@ dependencies = [
 
 [[package]]
 name = "nodalia-numerics"
-version = "0.3.0-dev"
+version = "0.3.0"
 dependencies = [
  "num-complex",
  "proptest",
@@ -1869,7 +1881,7 @@ dependencies = [
 
 [[package]]
 name = "nodalia-units"
-version = "0.3.0-dev"
+version = "0.3.0"
 dependencies = [
  "proptest",
  "thiserror 2.0.21",

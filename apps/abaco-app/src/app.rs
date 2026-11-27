@@ -71,7 +71,13 @@ enum Dialog {
         result: Result<(), String>,
     },
     /// A diagram was picked and read (`None`: the dialog was cancelled).
-    BlocksOpened(Option<Result<(PathBuf, String), String>>),
+    BlocksOpened(Option<Result<(PathBuf, blocks::Loaded), String>>),
+    BlocksExportAs(Option<PathBuf>),
+    /// A Simulink file was written.
+    BlocksExported {
+        path: PathBuf,
+        result: Result<(), String>,
+    },
     BlocksSaveAs(Option<PathBuf>),
     /// A diagram was written; `text` is what went to disk.
     BlocksSaved {
@@ -334,7 +340,12 @@ impl App {
                 }
                 Dialog::ScriptSaved { path, text, result } => self.script_saved(path, text, result),
                 Dialog::BlocksOpened(None) => {}
-                Dialog::BlocksOpened(Some(Ok((path, text)))) => self.open_blocks(path, &text),
+                Dialog::BlocksOpened(Some(Ok((path, loaded)))) => self.open_blocks(path, loaded),
+                Dialog::BlocksExportAs(Some(path)) => {
+                    self.export_simulink(blocks::with_simulink_extension(&path))
+                }
+                Dialog::BlocksExportAs(None) => {}
+                Dialog::BlocksExported { path, result } => self.simulink_exported(path, result),
                 Dialog::BlocksOpened(Some(Err(message))) => {
                     self.toast(trf("Could not open the diagram: {}", &[&message]));
                 }
@@ -503,9 +514,29 @@ impl App {
         }
     }
 
-    fn open_blocks(&mut self, path: PathBuf, text: &str) {
-        match self.blocks.open(Some(path), text) {
+    fn open_blocks(&mut self, path: PathBuf, loaded: blocks::Loaded) {
+        // A converted Simulink model has no Ábaco file yet: saving must not overwrite the original.
+        let file = if loaded.imported {
+            None
+        } else {
+            Some(path.clone())
+        };
+        match self.blocks.open(file, &loaded.text) {
             Ok(()) => {
+                if loaded.imported {
+                    self.blocks.dirty = true;
+                    let name = path
+                        .file_name()
+                        .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+                    let message = match loaded.notes.first() {
+                        None => trf("Imported {}", &[&name]),
+                        Some(first) => trf(
+                            "Imported {} with {} notes: {}",
+                            &[&name, &loaded.notes.len().to_string(), first],
+                        ),
+                    };
+                    self.toast(message);
+                }
                 self.blocks_view.fit_next = true;
                 self.home = false;
                 self.set_workspace(Workspace::Blocks);
@@ -559,6 +590,68 @@ impl App {
         }
     }
 
+    fn export_simulink(&mut self, path: PathBuf) {
+        let text = match self.blocks.text() {
+            Ok(text) => text,
+            Err(message) => {
+                self.toast(trf("Could not export the diagram: {}", &[&message]));
+                return;
+            }
+        };
+        let tx = self.tx.clone();
+        let ctx = self.ctx.clone();
+        let spawned = std::thread::Builder::new()
+            .name("export-simulink".into())
+            .spawn(move || {
+                let result = blocks::simulink_bytes(&text, &path).and_then(|bytes| {
+                    blocks::write_diagram(&path, bytes).map_err(|e| e.to_string())
+                });
+                let _ = tx.send(Dialog::BlocksExported { path, result });
+                ctx.request_repaint();
+            });
+        if spawned.is_err() {
+            self.toast(tr("Could not export the diagram."));
+        }
+    }
+
+    fn simulink_exported(&mut self, path: PathBuf, result: Result<(), String>) {
+        let name = path
+            .file_name()
+            .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+        match result {
+            Ok(()) => self.toast(trf("Exported {}", &[&name])),
+            Err(message) => self.toast(trf("Could not export {}: {}", &[&name, &message])),
+        }
+    }
+
+    fn pick_export_simulink(&mut self) {
+        if self.dialog_open {
+            return;
+        }
+        let title = tr("Export as a Simulink model");
+        let filter = tr("Simulink models");
+        let start = self.blocks.file_name().map_or_else(
+            || format!("{}.slx", tr("diagram")),
+            |n| {
+                std::path::Path::new(&n)
+                    .with_extension("slx")
+                    .to_string_lossy()
+                    .into_owned()
+            },
+        );
+        self.dialog("export-simulink-dialog", move || {
+            let picked = pollster::block_on(
+                rfd::AsyncFileDialog::new()
+                    .set_title(title)
+                    .set_file_name(start)
+                    .add_filter(filter, &["slx", "mdl"])
+                    .save_file(),
+            )
+            .map(|f| f.path().to_path_buf());
+            Dialog::BlocksExportAs(picked)
+        });
+    }
+
     fn save_blocks(&mut self) {
         match self.blocks.path.clone() {
             Some(path) => self.write_blocks(path),
@@ -576,7 +669,7 @@ impl App {
             let picked = pollster::block_on(
                 rfd::AsyncFileDialog::new()
                     .set_title(title)
-                    .add_filter(filter, &[blocks::EXTENSION])
+                    .add_filter(filter, &[blocks::EXTENSION, "slx", "mdl"])
                     .pick_file(),
             )
             .map(|f| f.path().to_path_buf());
@@ -948,6 +1041,7 @@ impl App {
                 }
             }
             Cmd::DeleteBlock => self.blocks.delete_selected(),
+            Cmd::ExportSimulink => self.pick_export_simulink(),
             Cmd::BlocksExample => {
                 self.blocks.open_example();
                 self.blocks_view.fit_next = true;

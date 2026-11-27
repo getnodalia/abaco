@@ -9,7 +9,13 @@ abaco eval '10 kg * 9.81 m/s^2 -> N'      # 98.1 N
 abaco run notebook.abaco                   # every cell, in page order
 abaco units list                           # the units and constants that are known
 abaco units convert '1 atm' kPa            # 101.325 kPa
+abaco sim plant.slx --vars params.mat      # simulate a Simulink model (or Ábaco Blocks JSON, .mdl)
+abaco convert plant.slx plant.mdl          # .json, .mdl and .slx in any direction; .mat to .mat
 ```
+
+`abaco convert` and `abaco sim` accept `--vars file.mat` (variables used by block parameters),
+`--lenient` (drop blocks with no equivalent, with a warning, instead of failing) and, for MAT-files,
+`--mat-version 4|6|7|7.3`. `abaco help convert` lists what is carried over and what is not.
 
 ## Options
 

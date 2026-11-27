@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! What each command does.
 
-use crate::args::{Command, Options, ScriptSource, SimArgs};
+use crate::args::{Command, ConvertArgs, Options, ScriptSource, SimArgs};
 use crate::{err, out};
 use abaco_blocks::{Model, SimResult};
 use abaco_doc::{error_json, CellError, CellKind, Document, DEFAULT_SIGNIFICANT_DIGITS};
@@ -17,6 +17,7 @@ pub fn run(cmd: &Command) -> ExitCode {
         Command::Run(file, o) => run_file(file, *o),
         Command::Script(src, o) => script(src, *o),
         Command::Sim(a, o) => sim(a, *o),
+        Command::Convert(a, o) => convert(a, *o),
         Command::Repl => repl(),
         Command::Functions(o) => functions(*o),
         Command::UnitsList(o) => units_list(*o),
@@ -413,21 +414,138 @@ fn csv_text(r: &SimResult) -> String {
     text
 }
 
+fn extension(path: &str) -> String {
+    std::path::Path::new(path)
+        .extension()
+        .map(|e| e.to_string_lossy().to_ascii_lowercase())
+        .unwrap_or_default()
+}
+
+fn read_file(path: &str) -> Result<Vec<u8>, String> {
+    std::fs::read(path).map_err(|e| format!("cannot read `{path}`: {e}"))
+}
+
+/// A block diagram from a JSON, `.mdl` or `.slx` file, with what had to be approximated.
+fn load_model(
+    path: &str,
+    vars: Option<&str>,
+    lenient: bool,
+) -> Result<(Model, Vec<String>), String> {
+    let bytes = read_file(path)?;
+    let is_json =
+        extension(path) == "json" || bytes.iter().find(|b| !b.is_ascii_whitespace()) == Some(&b'{');
+    if is_json {
+        let text = String::from_utf8(bytes).map_err(|_| format!("`{path}` is not UTF-8 text"))?;
+        return Model::from_json(&text)
+            .map(|m| (m, Vec::new()))
+            .map_err(|e| format!("{path}: {e}"));
+    }
+    let ws = match vars {
+        Some(v) => {
+            let file = abaco_formats::mat::read(&read_file(v)?)
+                .map_err(|e| format!("cannot read `{v}`: {e}"))?;
+            abaco_blocks::simulink::workspace_from_mat(&file.vars)
+        }
+        None => abaco_blocks::expr::Workspace::new(),
+    };
+    abaco_blocks::simulink::read(&bytes, &ws, !lenient)
+        .map(|i| (i.model, i.warnings))
+        .map_err(|e| format!("{path}: {e}"))
+}
+
+fn convert(a: &ConvertArgs, o: Options) -> ExitCode {
+    let fail = |msg: String| {
+        if o.json {
+            out(&pretty(&json!({ "ok": false, "error": msg })));
+        } else {
+            err(&format!("error: {msg}"));
+        }
+        ExitCode::from(2)
+    };
+    let (from, to) = (extension(&a.input), extension(&a.output));
+    let (bytes, warnings, what): (Vec<u8>, Vec<String>, String) = match (from.as_str(), to.as_str())
+    {
+        ("mat", "mat") => {
+            let file = match read_file(&a.input)
+                .and_then(|b| abaco_formats::mat::read(&b).map_err(|e| format!("{}: {e}", a.input)))
+            {
+                Ok(f) => f,
+                Err(e) => return fail(e),
+            };
+            let version = match a.mat_version.as_deref() {
+                Some("4") => abaco_formats::mat::MatVersion::V4,
+                Some("6") => abaco_formats::mat::MatVersion::V6,
+                Some("7") => abaco_formats::mat::MatVersion::V7,
+                Some("7.3") => abaco_formats::mat::MatVersion::V73,
+                _ => file.version,
+            };
+            let n = file.vars.len();
+            let out_file = abaco_formats::mat::MatFile { version, ..file };
+            match abaco_formats::mat::write(&out_file) {
+                Ok(b) => (b, Vec::new(), format!("{n} variables")),
+                Err(e) => return fail(format!("{}: {e}", a.output)),
+            }
+        }
+        ("json" | "mdl" | "slx", "json" | "mdl" | "slx") => {
+            let (model, warnings) = match load_model(&a.input, a.vars.as_deref(), a.lenient) {
+                Ok(r) => r,
+                Err(e) => return fail(e),
+            };
+            let n = model.blocks.len();
+            let written: Result<Vec<u8>, String> = match to.as_str() {
+                "json" => model.to_json().map(String::into_bytes).map_err(|e| e.to_string()),
+                "mdl" => abaco_blocks::simulink::write_mdl(&model)
+                    .map(String::into_bytes)
+                    .map_err(|e| e.to_string()),
+                _ => abaco_blocks::simulink::write_slx(&model).map_err(|e| e.to_string()),
+            };
+            match written {
+                Ok(b) => (b, warnings, format!("{n} blocks at the top level")),
+                Err(e) => return fail(format!("{}: {e}", a.output)),
+            }
+        }
+        (f, t) => {
+            return fail(format!(
+                "cannot convert `.{f}` to `.{t}`; models (.json, .mdl, .slx) convert among themselves and .mat to .mat"
+            ))
+        }
+    };
+    if let Err(e) = std::fs::write(&a.output, &bytes) {
+        return fail(format!("cannot write `{}`: {e}", a.output));
+    }
+    if o.json {
+        out(&pretty(&json!({
+            "ok": true,
+            "output": a.output,
+            "bytes": bytes.len(),
+            "warnings": warnings,
+        })));
+    } else {
+        for w in &warnings {
+            err(&format!("warning: {w}"));
+        }
+        out(&format!(
+            "wrote {} ({what}, {} bytes)",
+            a.output,
+            bytes.len()
+        ));
+    }
+    ExitCode::SUCCESS
+}
+
 fn sim(a: &SimArgs, o: Options) -> ExitCode {
-    let text = match std::fs::read_to_string(&a.file) {
-        Ok(t) => t,
+    let (mut model, warnings) = match load_model(&a.file, a.vars.as_deref(), a.lenient) {
+        Ok(r) => r,
         Err(e) => {
-            err(&format!("error: cannot read `{}`: {e}", a.file));
+            err(&format!("error: {e}"));
             return ExitCode::from(2);
         }
     };
-    let mut model = match Model::from_json(&text) {
-        Ok(m) => m,
-        Err(e) => {
-            err(&format!("error: {}: {e}", a.file));
-            return ExitCode::from(2);
+    if !o.json {
+        for w in &warnings {
+            err(&format!("warning: {w}"));
         }
-    };
+    }
     if let Some(stop) = a.stop {
         model.solver.stop_time = stop;
     }
@@ -456,6 +574,7 @@ fn sim(a: &SimArgs, o: Options) -> ExitCode {
             .collect();
         out(&pretty(&json!({
             "ok": true,
+            "warnings": warnings,
             "model": (if model.name.is_empty() { "model" } else { model.name.as_str() }),
             "time": r.time,
             "signals": signals,

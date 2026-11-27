@@ -15,6 +15,7 @@ mod elementwise;
 mod files;
 mod interpolate;
 mod linear;
+mod matio;
 mod numeric;
 mod odesuite;
 mod optimize;
@@ -22,6 +23,7 @@ mod plotting;
 mod poly;
 mod reduce;
 mod signal;
+mod special;
 mod stats;
 mod structs;
 mod system;
@@ -50,6 +52,7 @@ fn registry() -> &'static HashMap<&'static str, Bf> {
             poly::TABLE,
             reduce::TABLE,
             signal::TABLE,
+            special::TABLE,
             stats::TABLE,
             structs::TABLE,
             system::TABLE,

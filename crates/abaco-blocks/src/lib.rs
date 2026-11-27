@@ -39,10 +39,12 @@
 mod blocks;
 pub mod compile;
 pub mod error;
+pub mod expr;
 pub mod lti;
 pub mod model;
 pub mod palette;
 pub mod sim;
+pub mod simulink;
 
 pub use compile::{compile, Compiled};
 pub use error::{BlockError, Result};

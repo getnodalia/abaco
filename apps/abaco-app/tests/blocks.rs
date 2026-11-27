@@ -228,3 +228,49 @@ fn a_feedback_loop_does_not_stretch_the_layout() {
     let x = |n: &str| m.block(n).unwrap().position.unwrap().0;
     assert!(x("ref") < x("error") && x("error") < x("kp") && x("kp") < x("command"));
 }
+
+#[test]
+fn simulink_files_open_and_the_example_exports_to_them() {
+    use abaco_app::blocks::session::{
+        read_diagram, simulink_bytes, with_simulink_extension, write_diagram,
+    };
+    let dir = std::env::temp_dir().join(format!("abaco-app-simulink-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    for name in ["servo.slx", "servo.mdl"] {
+        let path = dir.join(name);
+        let bytes = simulink_bytes(EXAMPLE, &path).unwrap();
+        write_diagram(&path, bytes).unwrap();
+        let loaded = read_diagram(&path).unwrap();
+        assert!(loaded.imported, "{name}");
+        let mut s = Session::new();
+        s.open(None, &loaded.text).unwrap();
+        let mut original = Session::new();
+        original.open_example();
+        assert_eq!(s.model.blocks.len(), original.model.blocks.len(), "{name}");
+        let mut engine = BlocksEngine::spawn(|| {}).unwrap();
+        run_to_end(&mut engine, &mut s);
+        assert!(
+            matches!(s.status, Status::Done { .. }),
+            "{name}: {:?}",
+            s.status
+        );
+    }
+
+    // The extension chosen in a dialog is kept when it names a Simulink file, and added otherwise.
+    assert_eq!(with_simulink_extension(&dir.join("a")), dir.join("a.slx"));
+    assert_eq!(
+        with_simulink_extension(&dir.join("a.mdl")),
+        dir.join("a.mdl")
+    );
+
+    // A damaged file is an error that names what is wrong, never a panic.
+    let bad = dir.join("bad.slx");
+    std::fs::write(&bad, b"PK\x03\x04 not really").unwrap();
+    assert!(read_diagram(&bad).is_err());
+    let bad = dir.join("bad.mdl");
+    std::fs::write(&bad, b"Model { Name \"x\" ").unwrap();
+    assert!(read_diagram(&bad).is_err());
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -473,30 +473,102 @@ pub fn with_extension(path: &Path) -> PathBuf {
     }
 }
 
-/// Reads a diagram file, refusing one that is larger than the engine reads.
-pub fn read_diagram(path: &Path) -> Result<String, String> {
+/// Most bytes of a Simulink file the editor reads.
+const MAX_SIMULINK_BYTES: u64 = 64 << 20;
+
+/// A diagram read from disk.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Loaded {
+    /// The diagram as the text of an Ábaco file.
+    pub text: String,
+    /// It came from a Simulink file, so it has no Ábaco file of its own yet.
+    pub imported: bool,
+    /// What the conversion approximated or dropped.
+    pub notes: Vec<String>,
+}
+
+/// Whether `path` names a Simulink model (`.mdl` or `.slx`).
+pub fn is_simulink(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("mdl") || e.eq_ignore_ascii_case("slx"))
+}
+
+fn read_bounded(path: &Path, limit: u64) -> Result<Vec<u8>, String> {
     use std::io::Read;
     let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
     let mut bytes = Vec::new();
     // One byte more than the limit tells a file that fits from one that does not.
-    file.take(abaco_blocks::model::MAX_FILE_BYTES as u64 + 1)
+    file.take(limit + 1)
         .read_to_end(&mut bytes)
         .map_err(|e| e.to_string())?;
-    if bytes.len() > abaco_blocks::model::MAX_FILE_BYTES {
+    if bytes.len() as u64 > limit {
         return Err("the file is too large to open as a diagram".into());
     }
-    String::from_utf8(bytes).map_err(|_| "the file is not text".into())
+    Ok(bytes)
+}
+
+/// Reads a diagram file, refusing one that is larger than the engine reads. A Simulink model is
+/// converted; its variables come from a MAT-file of the same name beside it, when there is one.
+pub fn read_diagram(path: &Path) -> Result<Loaded, String> {
+    if is_simulink(path) {
+        let bytes = read_bounded(path, MAX_SIMULINK_BYTES)?;
+        let workspace = std::fs::read(path.with_extension("mat"))
+            .ok()
+            .and_then(|b| abaco_formats::mat::read(&b).ok())
+            .map(|f| abaco_blocks::simulink::workspace_from_mat(&f.vars))
+            .unwrap_or_default();
+        let import =
+            abaco_blocks::simulink::read(&bytes, &workspace, false).map_err(|e| e.to_string())?;
+        let text = import.model.to_json().map_err(|e| e.to_string())?;
+        return Ok(Loaded {
+            text,
+            imported: true,
+            notes: import.warnings,
+        });
+    }
+    let bytes = read_bounded(path, abaco_blocks::model::MAX_FILE_BYTES as u64)?;
+    let text = String::from_utf8(bytes).map_err(|_| "the file is not text".to_owned())?;
+    Ok(Loaded {
+        text,
+        imported: false,
+        notes: Vec::new(),
+    })
+}
+
+/// The diagram in `text` as the bytes of a Simulink file: `.mdl` text, or an `.slx` archive for
+/// any other extension.
+pub fn simulink_bytes(text: &str, path: &Path) -> Result<Vec<u8>, String> {
+    let model = Model::from_json(text).map_err(|e| e.to_string())?;
+    if path
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("mdl"))
+    {
+        abaco_blocks::simulink::write_mdl(&model)
+            .map(String::into_bytes)
+            .map_err(|e| e.to_string())
+    } else {
+        abaco_blocks::simulink::write_slx(&model).map_err(|e| e.to_string())
+    }
+}
+
+/// `path` with an `.slx` extension unless it already says `.mdl` or `.slx`.
+pub fn with_simulink_extension(path: &Path) -> PathBuf {
+    if is_simulink(path) {
+        path.to_path_buf()
+    } else {
+        path.with_extension("slx")
+    }
 }
 
 /// Writes a diagram next to its destination first and renames it, so a failure half way leaves
 /// the old file untouched.
-pub fn write_diagram(path: &Path, text: &str) -> std::io::Result<()> {
+pub fn write_diagram(path: &Path, text: impl AsRef<[u8]>) -> std::io::Result<()> {
     let name = path
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "diagram.json".to_owned());
     let tmp = path.with_file_name(format!(".{name}.tmp"));
-    let result = std::fs::write(&tmp, text).and_then(|()| std::fs::rename(&tmp, path));
+    let result = std::fs::write(&tmp, text.as_ref()).and_then(|()| std::fs::rename(&tmp, path));
     if result.is_err() {
         let _ = std::fs::remove_file(&tmp);
     }

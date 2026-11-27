@@ -20,9 +20,10 @@ functional, functional, validated (against analytic or published references), pr
 | Optimisation | Functional in Ábaco Script (Nelder–Mead, BFGS, Brent, Levenberg–Marquardt, simplex `linprog`); no constrained nonlinear solvers or quadratic programming yet |
 | Signals and filters | Functional (FFT of any length, `filter`, `filtfilt`, Butterworth/Chebyshev/FIR design, windows, spectra helpers) |
 | Control systems (`tf`/`zpk`/`ss`, step/bode/nyquist/margin/rlocus, `place`, `lqr`, Riccati and Lyapunov, `c2d`) | Functional in the library (`nodalia-numerics::control`) and in Ábaco Script; verified against closed forms (first-order step, second-order overshoot, gain margin 6 of 1/(s(s+1)(s+2)), LQR of a double integrator, ZOH, Riccati/Lyapunov residuals); SISO interconnection only, no operator overloading |
-| Block-diagram modelling and simulation (Simulink-class) | Functional in the library and CLI (`abaco-blocks`, `abaco sim`): about 60 blocks, fixed and variable step solvers including a stiff one, exact discrete and switching events, zero-crossing detection, subsystems, linearisation; verified against analytic solutions and fuzzed; a graphical editor in the app (no undo, no subsystem drill-down yet); no Stateflow, physical networks, code generation or `.slx` import (`docs/blocks.md`) |
+| Block-diagram modelling and simulation (Simulink-class) | Functional in the library and CLI (`abaco-blocks`, `abaco sim`): about 60 blocks, fixed and variable step solvers including a stiff one, exact discrete and switching events, zero-crossing detection, subsystems, linearisation; verified against analytic solutions and fuzzed; a graphical editor in the app (no undo, no subsystem drill-down yet); opens and exports `.mdl`/`.slx` (strict or lenient, `docs/blocks.md`); no Stateflow, physical networks or code generation |
 | ODE/DAE solver suite (`ode45`, stiff solvers, events) | Partially functional: Dormand–Prince 5(4) and Rosenbrock (2,3) with dense output, events, backward integration and a constant mass matrix (index-1 DAEs); no variable-order BDF/Adams, no `ode15i`, no delay equations |
-| File I/O (CSV, MAT-like) | Planned |
+| MATLAB file formats | Functional: MAT 4, 5/6, 7 and 7.3 read and written (own DEFLATE and HDF5, checked against SciPy and h5py), `.mdl` and `.slx` read and written, `.m` function and script files run; `save`/`load` use MAT-files. Not covered: integer, single, N-d and struct-array values (widened or left out with a warning), compressed v7.3 output, and no `.slx` written here has been opened in real MATLAB |
+| File I/O (CSV, text) | Functional (`readmatrix`, `writematrix`, `dlmread`, `fileread`, …) |
 
 ## Next
 
@@ -36,6 +37,7 @@ MATLAB and Simulink coverage is being built in increments (each ends in a pull r
    drawing, English and Spanish; undo and redo in the document and figure export still open).
 4. **Block diagrams**: a Simulink-style modeller with its own solvers (engine, `abaco sim` and the
    graphical editor in the app done; undo, subsystem drill-down and multi-selection still open).
+5. **Files**: MAT-files, Simulink models and `.m` files (done); symbolic computation still open.
 
 Also: selection of several cells, drag to reorder, running on macOS and Windows; symbolic
 differentiation and simplification.
