@@ -7,6 +7,8 @@ nodalia-units  nodalia-numerics      shared engines, no app dependencies
         |              |             |         language; the MATLAB-class matrix language;
         |              |             |         Simulink-class block diagrams
     abaco-doc          |             |         document, dependency graph, .abaco format
+        |              |             |
+        |         abaco-formats ------+         MAT-files, .mdl, .slx: DEFLATE, ZIP, HDF5, XML
         \\            |            /
           abaco-cli   abaco-app              front ends
 ```

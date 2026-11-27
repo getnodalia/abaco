@@ -79,13 +79,18 @@ in the spirit of Simulink, both running on solvers written for Nodalia.
   variable-step solvers including a stiff one, exact sample and switching times, zero-crossing
   detection, algebraic-loop detection and linearisation. Reference, verification and limits are in
   [`docs/blocks.md`](docs/blocks.md).
+- **MATLAB and Simulink files** (`abaco-formats`): reads and writes MAT-files (levels 4, 5/6, 7 and 7.3,
+  with DEFLATE, ZIP and HDF5 of its own), and `.mdl` and `.slx` models, which convert to and from
+  Ábaco Blocks. `save` and `load` use MAT-files, scripts run `.m` function and script files from the
+  path, and `abaco convert` and `abaco sim` take Simulink models. What cannot be carried over is
+  reported, and nothing was opened in MATLAB itself; details in [`docs/blocks.md`](docs/blocks.md#simulink-files).
 - **The desktop app** (`abaco-app`): a document of cells with results and errors in place, an
   outline, a units panel and a converter, a script workspace (`Ctrl+J`) and a block-diagram
   workspace (`Ctrl+Shift+L`). Evaluation and simulation run on threads of their own, so typing
   never waits. English and Spanish, light and dark, and the menu exported to the top bar on Linux.
 
 What does not exist yet is in [`ROADMAP.md`](ROADMAP.md): undo and redo in the app, exporting
-figures, symbolic computation and low-level file handles in scripts.
+figures, symbolic computation, integer and N-d arrays and low-level file handles in scripts.
 
 ## Download
 

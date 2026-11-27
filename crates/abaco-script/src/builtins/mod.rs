@@ -23,6 +23,7 @@ mod plotting;
 mod poly;
 mod reduce;
 mod signal;
+mod special;
 mod stats;
 mod structs;
 mod system;
@@ -51,6 +52,7 @@ fn registry() -> &'static HashMap<&'static str, Bf> {
             poly::TABLE,
             reduce::TABLE,
             signal::TABLE,
+            special::TABLE,
             stats::TABLE,
             structs::TABLE,
             system::TABLE,

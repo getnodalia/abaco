@@ -89,12 +89,39 @@ The app's block workspace (View ▸ Block diagrams, `Ctrl+Shift+L`) edits the sa
 * Blocks without a saved position are laid out in columns from the sources; a feedback loop is cut
   where it closes, so the layout stays as wide as the longest forward path.
 
+## Simulink files
+
+Ábaco reads and writes `.mdl` (text) and `.slx` (the zip-and-XML package) with `abaco-formats`, and
+converts them to and from its own blocks in `abaco_blocks::simulink`. The app opens them from the
+Open dialog (a converted model has no Ábaco file yet, so Save asks for one and never overwrites
+the original) and exports the diagram with *Export as a Simulink model*; the CLI does the same with
+`abaco convert plant.slx plant.json`, `abaco convert servo.json servo.slx` and
+`abaco sim plant.slx`.
+
+* Block parameters are expressions: numbers, matrices, ranges, complex numbers, a few functions and
+  variables. Variables come from a MAT-file (`--vars`; the app uses a `.mat` of the same name beside
+  the model). A name that is defined nowhere is an error that says which.
+* Sample time `-1` takes the model's fixed step, or fails when there is none. Solver names map to
+  Ábaco's (`ode45`, `ode23`, `ode23s`, `ode1`–`ode4`); the others are approximated and a warning says so.
+* **Strict by default.** A block, a parameter or a feature with no equivalent makes the conversion fail
+  and lists every one (`--lenient` drops them instead, with a warning for each, and the lines that
+  touched them). Exporting fails the same way for the blocks Simulink has no counterpart for in this
+  version (Chirp, Table, Pid, Sawtooth and Triangle waves, DiscreteDerivative, Identity).
+* Not carried: triggered, enabled and action subsystems, library links and masks, Stateflow, Simscape.
+  A `Derivative` with an infinite coefficient is approximated and warns.
+* Verified by round trips (Ábaco → `.mdl`/`.slx` → Ábaco gives the same blocks and the same
+  simulation, for the worked servo example and a model of about 25 block kinds), by checking that the
+  `.slx` is a valid zip with the package structure Simulink uses, and by importing a hand-written `.mdl`
+  whose result is known (`e^-2`). **It has not been opened in MATLAB or Simulink**, which is not
+  available here: an `.slx` written by Ábaco follows the published structure but is unproven against the
+  real program.
+
 ## Not done yet
 
 The editor has no undo and redo, no multiple selection, no copy and paste, no way to open a
 subsystem to edit it (it shows how many blocks it holds; edit its JSON), no routing of lines around
 blocks (they are curves), and a block cannot be dragged straight from the library. There are no Stateflow-style state machines, no
 physical-network (Simscape-style) blocks, no code generation, no variable-size or integer/fixed-point
-signals (everything is `f64`), no algebraic-loop solver (loops are reported, not solved), no
-Simulink `.slx` import. The stiff solver is limited to 400 states. Nothing here is validated for
+signals (everything is `f64`), no algebraic-loop solver (loops are reported, not solved), and no
+conversion of the Simulink features listed above. The stiff solver is limited to 400 states. Nothing here is validated for
 safety-critical use.
