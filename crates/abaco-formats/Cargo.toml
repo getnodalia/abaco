@@ -1,0 +1,18 @@
+[package]
+name = "abaco-formats"
+description = "Ábaco Formats: readers and writers for the file formats of MATLAB and Simulink (MAT 4, 5 and 7.3, .mdl, .slx), with DEFLATE, ZIP, HDF5 and XML of their own."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[lints]
+workspace = true

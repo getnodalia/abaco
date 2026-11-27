@@ -74,6 +74,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "abaco-formats"
+version = "0.3.0-dev"
+dependencies = [
+ "proptest",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "abaco-script"
 version = "0.3.0-dev"
 dependencies = [
