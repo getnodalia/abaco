@@ -45,6 +45,7 @@ dependencies = [
  "abaco-blocks",
  "abaco-doc",
  "abaco-expr",
+ "abaco-formats",
  "abaco-script",
  "nodalia-units",
  "serde_json",
@@ -86,6 +87,7 @@ dependencies = [
 name = "abaco-script"
 version = "0.3.0-dev"
 dependencies = [
+ "abaco-formats",
  "nodalia-numerics",
  "num-complex",
  "proptest",

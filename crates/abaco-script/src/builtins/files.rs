@@ -4,11 +4,12 @@
 //! turned `Limits::files` on, every file read is size-capped, and every file written is
 //! replaced atomically (written beside it, then renamed).
 
-use super::{arg, arity, is_flag, one, real_arg, str_arg, Bf, Out};
+use super::{arg, arity, matio, one, real_arg, str_arg, Bf, Out};
 use crate::error::{err, Result};
 use crate::interp::Interp;
 use crate::ops::MAX_ELEMENTS;
 use crate::value::{Arr, FnValue, StructV, Value};
+use abaco_formats::mat::{MatFile, MatValue, MatVersion};
 use num_complex::Complex64;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -616,19 +617,71 @@ fn with_ext(path: &str) -> PathBuf {
     }
 }
 
-/// `save(file, 'a', 'b')` writes the named variables, or all of them, to a text file.
+/// The `-option` arguments among the names of `save` and `load`, lower-cased, and the names.
+fn split_args(a: &[Value], who: &str) -> Result<(Vec<String>, Vec<String>)> {
+    let (mut flags, mut names) = (Vec::new(), Vec::new());
+    for k in 1..a.len() {
+        let s = str_arg(a, k, who)?;
+        if s.starts_with('-') {
+            flags.push(s.to_ascii_lowercase());
+        } else {
+            names.push(s.to_string());
+        }
+    }
+    Ok((flags, names))
+}
+
+fn is_legacy(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| e.to_string_lossy().eq_ignore_ascii_case(EXT))
+}
+
+fn mat_error(who: &str, e: impl std::fmt::Display) -> crate::error::Error {
+    crate::error::Error::new("Abaco:file", format!("`{who}`: {e}"))
+}
+
+/// `save(file, 'a', 'b')` writes the named variables (all when none are named). The file is a
+/// MAT-file (level 7 unless `-v4`, `-v6`, `-v7` or `-v7.3` says otherwise; `-append` adds to an
+/// existing one), except that a name ending in `.abd` is Ábaco's own text format.
 fn f_save(i: &mut Interp, a: &[Value], _: usize) -> Out {
     need_files(i, "save")?;
     arity(a, 1, usize::MAX, "save")?;
-    let path = with_ext(str_arg(a, 0, "save")?);
+    let file = str_arg(a, 0, "save")?;
+    let (flags, names) = split_args(a, "save")?;
+    let (mut version, mut append, mut nocomp) = (None, false, false);
+    for f in &flags {
+        match f.as_str() {
+            "-v4" => version = Some(MatVersion::V4),
+            "-v6" => version = Some(MatVersion::V6),
+            "-v7" => version = Some(MatVersion::V7),
+            "-v7.3" => version = Some(MatVersion::V73),
+            "-mat" => {}
+            "-append" => append = true,
+            "-nocompression" => nocomp = true,
+            other => {
+                return err(
+                    "Abaco:save",
+                    format!(
+                        "`save`: the option `{other}` is not supported (use writematrix for text)"
+                    ),
+                )
+            }
+        }
+    }
+    let legacy_given = is_legacy(Path::new(file));
+    if legacy_given && (version.is_some() || append || nocomp) {
+        return err(
+            "Abaco:save",
+            "`save`: a .abd file is Ábaco's own text format; MAT options need a .mat file name",
+        );
+    }
     let mut chosen: Vec<(String, Value)> = Vec::new();
-    if a.len() == 1 {
+    if names.is_empty() {
         chosen = i.variables();
     } else {
-        for k in 1..a.len() {
-            let name = str_arg(a, k, "save")?;
+        for name in &names {
             match i.get(name) {
-                Some(v) => chosen.push((name.to_string(), v.clone())),
+                Some(v) => chosen.push((name.clone(), v.clone())),
                 None => {
                     return err(
                         "Abaco:value",
@@ -638,20 +691,68 @@ fn f_save(i: &mut Interp, a: &[Value], _: usize) -> Out {
             }
         }
     }
-    let mut text = String::from(MAGIC);
-    text.push('\n');
-    let mut skipped = Vec::new();
+    if legacy_given {
+        let path = with_ext(file);
+        let mut text = String::from(MAGIC);
+        text.push('\n');
+        let mut skipped = Vec::new();
+        for (name, v) in &chosen {
+            let mut block = String::new();
+            let _ = writeln!(block, "var {name}");
+            match put(v, &mut block, 0) {
+                Ok(()) => text.push_str(&block),
+                Err(e) => skipped.push(format!("`{name}` ({})", e.message)),
+            }
+        }
+        write_atomic(&path, text.as_bytes())?;
+        for s in skipped {
+            i.warn(format!("save: skipped {s}"));
+        }
+        return Ok(vec![]);
+    }
+    let path = if Path::new(file).extension().is_some() {
+        PathBuf::from(file)
+    } else {
+        Path::new(file).with_extension("mat")
+    };
+    let mut warns = Vec::new();
+    let mut vars: Vec<(String, MatValue)> = Vec::new();
     for (name, v) in &chosen {
-        let mut block = String::new();
-        let _ = writeln!(block, "var {name}");
-        match put(v, &mut block, 0) {
-            Ok(()) => text.push_str(&block),
-            Err(e) => skipped.push(format!("`{name}` ({})", e.message)),
+        if let Some(m) = matio::from_value(v, name, &mut warns) {
+            vars.push((name.clone(), m));
         }
     }
-    write_atomic(&path, text.as_bytes())?;
-    for s in skipped {
-        i.warn(format!("save: skipped {s}"));
+    let mut level = version;
+    if append && path.exists() {
+        let old = abaco_formats::mat::read(&read_bytes(&path)?).map_err(|e| {
+            mat_error(
+                "save",
+                format!("cannot append to `{}`: {e}", path.display()),
+            )
+        })?;
+        level = level.or(Some(old.version));
+        let mut merged = old.vars;
+        for (n, v) in vars {
+            match merged.iter_mut().find(|(k, _)| *k == n) {
+                Some(slot) => slot.1 = v,
+                None => merged.push((n, v)),
+            }
+        }
+        vars = merged;
+    }
+    let mut level = level.unwrap_or(MatVersion::V7);
+    if nocomp && level == MatVersion::V7 {
+        level = MatVersion::V6;
+    }
+    let bytes = abaco_formats::mat::write(&MatFile {
+        version: level,
+        description: "MATLAB 5.0 MAT-file, Platform: Abaco".into(),
+        vars,
+    })
+    .map_err(|e| mat_error("save", e))?;
+    write_atomic(&path, &bytes)?;
+    for w in warns {
+        i.warn(format!("save: {w}"));
     }
     Ok(vec![])
 }
@@ -678,47 +779,102 @@ fn name_from_file(path: &Path) -> String {
     name
 }
 
-/// `load(file)` restores a saved workspace, or reads a numeric text file into a variable
-/// named after the file. With an output it returns a struct (workspace) or the matrix.
+/// Whether the bytes are a MAT-file by their own signature (level 4 has none).
+fn looks_like_mat(bytes: &[u8]) -> bool {
+    bytes.starts_with(b"MATLAB")
+        || bytes.starts_with(b"\x89HDF\r\n\x1a\n")
+        || bytes.get(512..520) == Some(b"\x89HDF\r\n\x1a\n")
+}
+
+/// Hands the chosen variables back the way `load` does: as a struct with an output, otherwise
+/// into the workspace.
+fn deliver(i: &mut Interp, vars: Vec<(String, Value)>, nargout: usize) -> Out {
+    if nargout >= 1 {
+        let mut s = StructV::default();
+        for (n, v) in vars {
+            s.set(&n, v);
+        }
+        return one(Value::Struct(Box::new(s)));
+    }
+    for (n, v) in vars {
+        i.set(&n, v);
+    }
+    Ok(vec![])
+}
+
+fn pick(vars: &mut Vec<(String, Value)>, names: &[String], given: &str) -> Result<()> {
+    for w in names {
+        if !vars.iter().any(|(n, _)| n == w) {
+            return err(
+                "Abaco:value",
+                format!("`load`: `{given}` has no variable `{w}`"),
+            );
+        }
+    }
+    if !names.is_empty() {
+        vars.retain(|(n, _)| names.contains(n));
+    }
+    Ok(())
+}
+
+/// `load(file)` restores the variables of a MAT-file (any level, `.mat` added when the name has
+/// none) or of an Ábaco `.abd` file, or reads a numeric text file into a variable named after
+/// the file. With an output it returns a struct (workspace) or the matrix.
 fn f_load(i: &mut Interp, a: &[Value], nargout: usize) -> Out {
     need_files(i, "load")?;
     arity(a, 1, usize::MAX, "load")?;
     let given = str_arg(a, 0, "load")?;
+    let (flags, names) = split_args(a, "load")?;
+    let (mut force_mat, mut ascii) = (false, false);
+    for f in &flags {
+        match f.as_str() {
+            "-mat" => force_mat = true,
+            "-ascii" => ascii = true,
+            other => {
+                return err(
+                    "Abaco:load",
+                    format!("`load`: the option `{other}` is not supported"),
+                )
+            }
+        }
+    }
     let mut path = PathBuf::from(given);
     if !path.exists() && path.extension().is_none() {
-        path.set_extension(EXT);
+        let mat = path.with_extension("mat");
+        path = if mat.exists() {
+            mat
+        } else {
+            path.with_extension(EXT)
+        };
     }
-    let text = read_text(&path)?;
+    let bytes = read_bytes(&path)?;
+    let level4_name = path
+        .extension()
+        .is_some_and(|e| e.to_string_lossy().eq_ignore_ascii_case("mat"));
+    if !ascii && (force_mat || looks_like_mat(&bytes) || level4_name) {
+        let file = abaco_formats::mat::read(&bytes)
+            .map_err(|e| mat_error("load", format!("cannot read `{given}`: {e}")))?;
+        let mut warns = Vec::new();
+        let mut vars = Vec::new();
+        for (n, v) in &file.vars {
+            if let Some(x) = matio::to_value(v, n, &mut warns) {
+                vars.push((n.clone(), x));
+            }
+        }
+        pick(&mut vars, &names, given)?;
+        for w in warns {
+            i.warn(format!("load: {w}"));
+        }
+        return deliver(i, vars, nargout);
+    }
+    let text = String::from_utf8_lossy(&bytes).into_owned();
+    let text = text.strip_prefix('\u{feff}').unwrap_or(&text).to_string();
     if text.starts_with("ABACO-DATA") {
         let mut vars = parse_workspace(&text)?;
-        if a.len() > 1 {
-            let mut wanted = Vec::new();
-            for k in 1..a.len() {
-                wanted.push(str_arg(a, k, "load")?.to_string());
-            }
-            for w in &wanted {
-                if !vars.iter().any(|(n, _)| n == w) {
-                    return err(
-                        "Abaco:value",
-                        format!("`load`: `{given}` has no variable `{w}`"),
-                    );
-                }
-            }
-            vars.retain(|(n, _)| wanted.contains(n));
-        }
-        if nargout >= 1 {
-            let mut s = StructV::default();
-            for (n, v) in vars {
-                s.set(&n, v);
-            }
-            return one(Value::Struct(Box::new(s)));
-        }
-        for (n, v) in vars {
-            i.set(&n, v);
-        }
-        return Ok(vec![]);
+        pick(&mut vars, &names, given)?;
+        return deliver(i, vars, nargout);
     }
-    if a.len() > 1 && !is_flag(a, 1, "-ascii") {
+    if !names.is_empty() {
         return err(
             "Abaco:load",
             format!("`{given}` is a text file of numbers; it has no variables to choose from"),

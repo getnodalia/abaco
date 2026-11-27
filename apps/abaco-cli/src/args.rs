@@ -30,8 +30,10 @@ pub enum Command {
     Run(String, Options),
     /// `abaco script <file>` or `abaco script --code <source>`.
     Script(ScriptSource, Options),
-    /// `abaco sim <model.json>`.
+    /// `abaco sim <model>`.
     Sim(SimArgs, Options),
+    /// `abaco convert <in> <out>`.
+    Convert(ConvertArgs, Options),
     /// `abaco repl`.
     Repl,
     /// `abaco functions`.
@@ -51,6 +53,26 @@ pub struct SimArgs {
     pub stop: Option<f64>,
     /// `--csv FILE`: also write every recorded signal there.
     pub csv: Option<String>,
+    /// `--vars FILE.mat`: the variables that a Simulink model's parameters name.
+    pub vars: Option<String>,
+    /// `--lenient`: drop Simulink blocks that have no equivalent (with a warning) instead of
+    /// failing.
+    pub lenient: bool,
+}
+
+/// What `abaco convert` was asked to do.
+#[derive(Debug, PartialEq, Clone)]
+pub struct ConvertArgs {
+    /// The file to read.
+    pub input: String,
+    /// The file to write; its extension says the format.
+    pub output: String,
+    /// `--vars FILE.mat`, as for `sim`.
+    pub vars: Option<String>,
+    /// `--lenient`, as for `sim`.
+    pub lenient: bool,
+    /// `--mat-version 4|6|7|7.3`: the level of a MAT-file written.
+    pub mat_version: Option<String>,
 }
 
 /// Where a script's source comes from.
@@ -62,11 +84,12 @@ pub enum ScriptSource {
     Code(String),
 }
 
-const COMMANDS: [&str; 8] = [
+const COMMANDS: [&str; 9] = [
     "eval",
     "run",
     "script",
     "sim",
+    "convert",
     "repl",
     "functions",
     "units",
@@ -83,6 +106,9 @@ pub fn parse(argv: &[String]) -> Result<Parsed, String> {
     let mut code: Option<String> = None;
     let mut stop: Option<f64> = None;
     let mut csv: Option<String> = None;
+    let mut vars: Option<String> = None;
+    let mut lenient = false;
+    let mut mat_version: Option<String> = None;
     let mut it = argv.iter();
     while let Some(a) = it.next() {
         if only_positional {
@@ -116,6 +142,23 @@ pub fn parse(argv: &[String]) -> Result<Parsed, String> {
                         .ok_or_else(|| "`--csv` needs a file name".to_string())?
                         .clone(),
                 );
+            }
+            "--lenient" => lenient = true,
+            "--vars" => {
+                vars = Some(
+                    it.next()
+                        .ok_or_else(|| "`--vars` needs a MAT-file name".to_string())?
+                        .clone(),
+                );
+            }
+            "--mat-version" => {
+                let v = it
+                    .next()
+                    .ok_or_else(|| "`--mat-version` needs 4, 6, 7 or 7.3".to_string())?;
+                if !matches!(v.as_str(), "4" | "6" | "7" | "7.3") {
+                    return Err(format!("`--mat-version` needs 4, 6, 7 or 7.3, got `{v}`"));
+                }
+                mat_version = Some(v.clone());
             }
             "--digits" => {
                 let v = it
@@ -197,6 +240,29 @@ pub fn parse(argv: &[String]) -> Result<Parsed, String> {
                     file: file.clone(),
                     stop,
                     csv,
+                    vars,
+                    lenient,
+                },
+                opts,
+            )))
+        }
+        Some("convert") => {
+            let (Some(input), Some(output)) = (rest.next(), rest.next()) else {
+                return Err(
+                    "`convert` needs the file to read and the file to write, for example: abaco convert plant.slx plant.mdl"
+                        .into(),
+                );
+            };
+            if rest.next().is_some() {
+                return Err("`convert` takes two files".into());
+            }
+            Ok(Parsed::Command(Command::Convert(
+                ConvertArgs {
+                    input: input.clone(),
+                    output: output.clone(),
+                    vars,
+                    lenient,
+                    mat_version,
                 },
                 opts,
             )))
@@ -276,7 +342,8 @@ USAGE
     abaco eval '<expression>' [--json] [--digits N]
     abaco run <file.abaco> [--json] [--digits N]
     abaco script <file.m | -> | --code '<source>'
-    abaco sim <model.json> [--stop T] [--csv out.csv] [--json] [--digits N]
+    abaco sim <model.json|.mdl|.slx> [--vars v.mat] [--lenient] [--stop T] [--csv out.csv] [--json] [--digits N]
+    abaco convert <in> <out> [--vars v.mat] [--lenient] [--mat-version 4|6|7|7.3]
     abaco repl
     abaco functions [--json]
     abaco units list [--json]
@@ -326,15 +393,36 @@ standard output, warnings to standard error. `-` reads the script from standard 
 On an error the message, line and column go to standard error and the exit code is 1."
             .to_string(),
         Some("sim") => "\
-abaco sim <model.json> [--stop T] [--csv out.csv] [--json] [--digits N]
+abaco sim <model.json|.mdl|.slx> [--vars v.mat] [--lenient] [--stop T] [--csv out.csv] [--json] [--digits N]
 
-Simulates a block diagram (Ábaco Blocks, JSON) with the model's own solver and prints the final
+Simulates a block diagram (Ábaco Blocks JSON, or a Simulink .mdl or .slx file) with the model's own solver and prints the final
 value of every logged signal (scopes, outports, ToWorkspace) with the solver's statistics.
 --stop T overrides the stop time; --csv writes time and every signal to a file; --json prints
 the whole run (times and samples). The exit code is 1 when the model cannot be compiled or the
 run fails (algebraic loop, a non-finite signal, a step that cannot be taken), with the block named.
 
-    abaco sim servo.json --stop 5 --csv servo.csv"
+    abaco sim servo.json --stop 5 --csv servo.csv
+    abaco sim plant.slx --vars params.mat
+
+A Simulink model is converted first. --vars names a MAT-file whose variables the block parameters
+use (`Gain = K`). A block with no equivalent makes the command fail and lists every one;
+--lenient drops them instead and prints a warning for each."
+            .to_string(),
+        Some("convert") => "\
+abaco convert <in> <out> [--vars v.mat] [--lenient] [--mat-version 4|6|7|7.3]
+
+Converts a file; the extensions say the formats.
+
+    models      .json (Ábaco Blocks), .mdl and .slx (Simulink), in any direction
+    MAT-files   .mat to .mat: re-written at the level --mat-version names, value for value
+
+    abaco convert plant.slx plant.mdl
+    abaco convert servo.json servo.slx
+    abaco convert old.mat new.mat --mat-version 7.3
+
+Everything that cannot be carried over exactly is said: a model fails to convert, listing each
+block that has no equivalent, unless --lenient is given. Integers wider than 53 bits lose their
+low bits in a MAT-file (values are held as doubles)."
             .to_string(),
         Some("repl") => "\
 abaco repl
@@ -375,7 +463,9 @@ mod tests {
                 SimArgs {
                     file: "m.json".into(),
                     stop: Some(2.5),
-                    csv: Some("o.csv".into())
+                    csv: Some("o.csv".into()),
+                    vars: None,
+                    lenient: false,
                 },
                 Options {
                     json: true,
@@ -388,6 +478,28 @@ mod tests {
         assert!(p(&["sim", "a.json", "--stop", "soon"]).is_err());
         assert!(p(&["sim", "a.json", "--stop", "inf"]).is_err());
         assert!(p(&["sim", "a.json", "--csv"]).is_err());
+        assert!(p(&["sim", "a.slx", "--vars"]).is_err());
+    }
+
+    #[test]
+    fn parses_convert_with_its_options() {
+        assert_eq!(
+            p(&["convert", "a.slx", "b.mdl", "--lenient", "--vars", "v.mat"]),
+            Ok(Parsed::Command(Command::Convert(
+                ConvertArgs {
+                    input: "a.slx".into(),
+                    output: "b.mdl".into(),
+                    vars: Some("v.mat".into()),
+                    lenient: true,
+                    mat_version: None,
+                },
+                Options::default()
+            )))
+        );
+        assert!(p(&["convert", "a.mat"]).is_err());
+        assert!(p(&["convert", "a", "b", "c"]).is_err());
+        assert!(p(&["convert", "a.mat", "b.mat", "--mat-version", "5"]).is_err());
+        assert!(p(&["convert", "a.mat", "b.mat", "--mat-version", "7.3"]).is_ok());
     }
 
     #[test]

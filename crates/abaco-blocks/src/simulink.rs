@@ -19,6 +19,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
+use abaco_formats::mat::MatValue;
 use abaco_formats::simulink::{SimBlock, SimLine, SimModel, SimSystem};
 
 use crate::error::{BlockError, Result};
@@ -54,6 +55,40 @@ pub fn write_mdl(model: &Model) -> Result<String> {
 /// The model as an `.slx` archive.
 pub fn write_slx(model: &Model) -> Result<Vec<u8>> {
     abaco_formats::slx::write(&to_simulink(model)?).map_err(|e| BlockError::Model(e.to_string()))
+}
+
+/// The real numeric and logical two-dimensional variables of a MAT-file as a workspace, ready to
+/// supply the names that block parameters use. Complex, sparse, text, cell and struct variables
+/// are left out: a parameter expression cannot use them.
+pub fn workspace_from_mat(vars: &[(String, MatValue)]) -> Workspace {
+    let mut ws = Workspace::new();
+    for (name, v) in vars {
+        let (dims, data): (&[usize], Vec<f64>) = match v {
+            MatValue::Numeric {
+                dims, re, im: None, ..
+            } => (dims, re.clone()),
+            MatValue::Logical { dims, data } => {
+                (dims, data.iter().map(|b| f64::from(u8::from(*b))).collect())
+            }
+            _ => continue,
+        };
+        let (r, c) = match dims {
+            [r, c] => (*r, *c),
+            _ => continue,
+        };
+        if r.checked_mul(c) != Some(data.len()) || data.len() > MAX_ELEMENTS {
+            continue;
+        }
+        let rows = (0..r)
+            .map(|i| {
+                (0..c)
+                    .filter_map(|j| data.get(j * r + i).copied())
+                    .collect()
+            })
+            .collect();
+        ws.insert(name.clone(), rows);
+    }
+    ws
 }
 
 // ───────────────────────────── import ─────────────────────────────
@@ -1963,6 +1998,19 @@ Model {
         let r = simulate(&imp.model).unwrap();
         let x = r.signal("Scope").unwrap().column(0);
         assert!((x[x.len() - 1] - (-2.0f64).exp()).abs() < 1e-4);
+    }
+
+    #[test]
+    fn a_mat_file_supplies_the_variables() {
+        let vars = vec![
+            ("a".to_string(), MatValue::scalar(1.0)),
+            ("t".to_string(), MatValue::text("skipped")),
+        ];
+        let ws = workspace_from_mat(&vars);
+        assert_eq!(ws.get("a"), Some(&vec![vec![1.0]]));
+        assert!(!ws.contains_key("t"));
+        let imp = read(DECAY.as_bytes(), &ws, true).unwrap();
+        assert!(imp.model.block("K").is_some());
     }
 
     #[test]

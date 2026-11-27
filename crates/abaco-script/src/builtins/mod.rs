@@ -15,6 +15,7 @@ mod elementwise;
 mod files;
 mod interpolate;
 mod linear;
+mod matio;
 mod numeric;
 mod odesuite;
 mod optimize;

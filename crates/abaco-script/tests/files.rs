@@ -108,9 +108,9 @@ fn dlm_and_csv_functions_agree() {
 }
 
 #[test]
-fn a_workspace_round_trips() {
+fn an_abd_workspace_round_trips() {
     let d = dir("ws");
-    let f = path(&d, "w");
+    let f = path(&d, "w.abd");
     let mut i = open();
     run(
         &mut i,
@@ -130,7 +130,7 @@ load('{f}');
 "#
         ),
     );
-    assert!(d.join("w.abd").is_file(), "the extension is added");
+    assert!(d.join("w.abd").is_file(), "the .abd file is written");
     assert_eq!(real(&i, "x"), vec![1.0, 3.0, 2.0, 4.5]);
     run(
         &mut i,
@@ -272,4 +272,110 @@ fn isequaln_treats_nan_as_equal() {
     assert_eq!(real(&i, "b"), vec![0.0]);
     assert_eq!(real(&i, "c"), vec![0.0]);
     assert_eq!(real(&i, "d"), vec![1.0]);
+}
+
+#[test]
+fn a_mat_workspace_round_trips_at_every_level() {
+    for (flag, tag) in [
+        ("", "d"),
+        ("'-v4'", "v4"),
+        ("'-v6'", "v6"),
+        ("'-v7'", "v7"),
+        ("'-v7.3'", "v73"),
+    ] {
+        let d = dir(&format!("mat{tag}"));
+        let f = path(&d, "w");
+        let mut i = open();
+        let v4 = flag == "'-v4'";
+        // Level 4 holds numbers and text only.
+        let extra = if v4 {
+            ""
+        } else {
+            "b = [true false true]; c = {1, 'two'; [3 4 5], {6}}; st.a = 1; st.name = 'motor'; st.inner.k = [9 8]; e = [];"
+        };
+        let args = if flag.is_empty() {
+            String::new()
+        } else {
+            format!(", {flag}")
+        };
+        let vars = if v4 { ", 'x', 'z', 's'" } else { "" };
+        let src = format!(
+            "x = [1 2; 3 4.5]; z = [1+2i, 3-4i]; s = 'hello'; {extra}\nsave('{f}'{args}{vars});\nclear all\nload('{f}');"
+        );
+        run(&mut i, &src);
+        assert!(
+            d.join("w.mat").is_file(),
+            "{tag}: the .mat extension is added"
+        );
+        assert_eq!(real(&i, "x"), vec![1.0, 3.0, 2.0, 4.5], "{tag}");
+        run(
+            &mut i,
+            "ok = isequal(z, [1+2i, 3-4i]) && strcmp(s, 'hello');",
+        );
+        assert_eq!(real(&i, "ok"), vec![1.0], "{tag}");
+        if !v4 {
+            run(
+                &mut i,
+                "ok = isequal(b, [true false true]) && isequal(st.inner.k, [9 8]) && strcmp(st.name, 'motor') && strcmp(c{1,2}, 'two') && isequal(c{2,1}, [3 4 5]) && isequal(c{2,2}{1}, 6) && isempty(e);",
+            );
+            assert_eq!(real(&i, "ok"), vec![1.0], "{tag}");
+        }
+        let _ = std::fs::remove_dir_all(&d);
+    }
+}
+
+#[test]
+fn mat_files_say_what_they_cannot_hold() {
+    let d = dir("matwarn");
+    let f = path(&d, "h.mat");
+    let mut i = open();
+    run(&mut i, &format!("g = @(t) t.^2; k = 5; save('{f}');"));
+    let events: Vec<_> = i.take_events();
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::Warning(w) if w.contains("function handle"))),
+        "{events:?}"
+    );
+    run(&mut i, &format!("clear all\nload('{f}');"));
+    assert_eq!(real(&i, "k"), vec![5.0]);
+    assert!(i.get("g").is_none());
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn save_append_and_load_pick_from_mat_files() {
+    let d = dir("matappend");
+    let f = path(&d, "a.mat");
+    let mut i = open();
+    run(
+        &mut i,
+        &format!(
+            "a = 1; b = 2; save('{f}', 'a'); b = 3; save('{f}', 'b', '-append'); a = 9; S = load('{f}'); load('{f}', 'a');"
+        ),
+    );
+    assert_eq!(real(&i, "a"), vec![1.0]);
+    run(&mut i, "t = S.b;");
+    assert_eq!(real(&i, "t"), vec![3.0]);
+    let e = i.run(&format!("load('{f}', 'zzz')")).unwrap_err();
+    assert_eq!(e.id, "Abaco:value");
+    let e = i.run(&format!("save('{f}', '-ascii', 'a')")).unwrap_err();
+    assert!(e.message.contains("-ascii"));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn damaged_mat_files_are_errors() {
+    let d = dir("matbad");
+    let f = path(&d, "bad.mat");
+    let mut i = open();
+    run(&mut i, &format!("x = rand(5); save('{f}');"));
+    let bytes = std::fs::read(&f).unwrap();
+    for cut in [0, 10, 100, 127, 130, bytes.len() / 2] {
+        std::fs::write(&f, &bytes[..cut]).unwrap();
+        let _ = i.run(&format!("load('{f}')"));
+    }
+    std::fs::write(&f, b"not a mat file at all, just some words").unwrap();
+    assert!(i.run(&format!("load('{f}')")).is_err());
+    let _ = std::fs::remove_dir_all(&d);
 }
