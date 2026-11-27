@@ -94,6 +94,8 @@ Packages for Linux, macOS and Windows are on the
 [getnodalia.com/abaco](https://getnodalia.com/abaco). Each package installs the app as `abaco` and
 the command line as `abaco-cli`.
 
+[Nodalia Launcher](https://getnodalia.com/launcher) installs it and keeps it up to date too.
+
 | Platform | Files |
 |---|---|
 | Linux (x86_64) | `.AppImage`, `.deb`, `.rpm`, `.tar.gz` |
