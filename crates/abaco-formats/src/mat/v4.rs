@@ -60,7 +60,13 @@ pub fn read_v4(bytes: &[u8]) -> Result<MatFile> {
                 u32::from_be_bytes(a)
             }
         };
-        let valid = |m: u32| m < 5000 && (m / 1000) <= 4 && (m / 100) % 10 == 0 && (m / 10) % 10 <= 5 && m % 10 <= 2;
+        let valid = |m: u32| {
+            m < 5000
+                && (m / 1000) <= 4
+                && (m / 100).is_multiple_of(10)
+                && (m / 10) % 10 <= 5
+                && m % 10 <= 2
+        };
         let le = if valid(rd(0, true)) {
             true
         } else if valid(rd(0, false)) {
@@ -167,7 +173,15 @@ pub fn read_v4(bytes: &[u8]) -> Result<MatFile> {
     })
 }
 
-fn matrix(out: &mut Vec<u8>, name: &str, rows: usize, cols: usize, kind: u32, re: &[f64], im: Option<&[f64]>) {
+fn matrix(
+    out: &mut Vec<u8>,
+    name: &str,
+    rows: usize,
+    cols: usize,
+    kind: u32,
+    re: &[f64],
+    im: Option<&[f64]>,
+) {
     out.extend_from_slice(&kind.to_le_bytes());
     out.extend_from_slice(&(rows as u32).to_le_bytes());
     out.extend_from_slice(&(cols as u32).to_le_bytes());

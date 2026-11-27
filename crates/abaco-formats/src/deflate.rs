@@ -436,8 +436,7 @@ pub fn deflate(data: &[u8]) -> Vec<u8> {
                 steps += 1;
             }
         }
-        let advance;
-        if best_len >= 3 {
+        let advance = if best_len >= 3 {
             let li = LEN_BASE
                 .iter()
                 .rposition(|&b| usize::from(b) <= best_len)
@@ -462,11 +461,11 @@ pub fn deflate(data: &[u8]) -> Vec<u8> {
                     u32::from(dextra),
                 );
             }
-            advance = best_len;
+            best_len
         } else {
             put_lit(&mut w, u32::from(data.get(i).copied().unwrap_or(0)));
-            advance = 1;
-        }
+            1
+        };
         for k in 0..advance {
             if i + k + 3 <= data.len() {
                 let h = hash(i + k);

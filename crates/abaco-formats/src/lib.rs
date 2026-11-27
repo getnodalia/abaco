@@ -15,6 +15,7 @@
 
 pub mod deflate;
 pub mod error;
+pub mod hdf5;
 pub mod mat;
 
 pub use error::{FormatError, Result};

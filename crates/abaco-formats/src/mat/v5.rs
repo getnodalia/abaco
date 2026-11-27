@@ -84,7 +84,11 @@ fn element<'a>(buf: &'a [u8], pos: usize, cx: &Ctx) -> Result<(u32, &'a [u8], us
     let Some(data) = start.checked_add(n).and_then(|e| buf.get(start..e)) else {
         return corrupt("a data element is larger than the file");
     };
-    let padded = if w0 == MI_COMPRESSED { n } else { n.div_ceil(8) * 8 };
+    let padded = if w0 == MI_COMPRESSED {
+        n
+    } else {
+        n.div_ceil(8) * 8
+    };
     Ok((w0, data, start + padded))
 }
 
@@ -219,7 +223,7 @@ fn matrix(payload: &[u8], cx: &mut Ctx, depth: usize) -> Result<(String, MatValu
             let fields: Vec<String> = names.chunks(fl).map(text_bytes).collect();
             let nf = fields.len();
             let mut values = Vec::with_capacity((total * nf).min(1 << 16));
-            for _ in 0..total.checked_mul(nf).unwrap_or(usize::MAX) {
+            for _ in 0..total.saturating_mul(nf) {
                 let (ty, d, p) = element(payload, pos, cx)?;
                 pos = p;
                 if ty != MI_MATRIX {
@@ -276,7 +280,11 @@ fn matrix(payload: &[u8], cx: &mut Ctx, depth: usize) -> Result<(String, MatValu
             if col_ptr.len() < cols + 1 {
                 return corrupt("a sparse matrix has too few column pointers");
             }
-            let nnz = col_ptr.get(cols).copied().unwrap_or(0).min(nzmax.max(row_idx.len()));
+            let nnz = col_ptr
+                .get(cols)
+                .copied()
+                .unwrap_or(0)
+                .min(nzmax.max(row_idx.len()));
             let (rty, rdata, p) = element(payload, pos, cx)?;
             pos = p;
             let mut re = numbers(rty, rdata, cx)?;
@@ -474,11 +482,7 @@ fn header(out: &mut Vec<u8>, class: u32, flags: u32, nzmax: u32, dims: &[usize],
     put_elem(
         out,
         MI_UINT32,
-        &[
-            (class | flags).to_le_bytes(),
-            nzmax.to_le_bytes(),
-        ]
-        .concat(),
+        &[(class | flags).to_le_bytes(), nzmax.to_le_bytes()].concat(),
     );
     let d: Vec<u8> = dims
         .iter()
@@ -536,7 +540,11 @@ fn matrix_bytes(name: &str, v: &MatValue) -> Result<Vec<u8>> {
             }
             header(&mut body, MX_STRUCT, 0, 0, dims, name);
             let longest = fields.iter().map(|f| f.len()).max().unwrap_or(0);
-            let fl = if longest < 32 { 32 } else { 64.max(longest + 1) };
+            let fl = if longest < 32 {
+                32
+            } else {
+                64.max(longest + 1)
+            };
             put_elem(&mut body, MI_INT32, &(fl as i32).to_le_bytes());
             let mut names = Vec::new();
             for f in fields {
@@ -559,9 +567,22 @@ fn matrix_bytes(name: &str, v: &MatValue) -> Result<Vec<u8>> {
             logical,
         } => {
             let flags = if im.is_some() { 0x0800 } else { 0 } | if *logical { 0x0200 } else { 0 };
-            header(&mut body, MX_SPARSE, flags, row_idx.len().max(1) as u32, &[*rows, *cols], name);
-            let ir: Vec<u8> = row_idx.iter().flat_map(|&i| (i as i32).to_le_bytes()).collect();
-            let jc: Vec<u8> = col_ptr.iter().flat_map(|&i| (i as i32).to_le_bytes()).collect();
+            header(
+                &mut body,
+                MX_SPARSE,
+                flags,
+                row_idx.len().max(1) as u32,
+                &[*rows, *cols],
+                name,
+            );
+            let ir: Vec<u8> = row_idx
+                .iter()
+                .flat_map(|&i| (i as i32).to_le_bytes())
+                .collect();
+            let jc: Vec<u8> = col_ptr
+                .iter()
+                .flat_map(|&i| (i as i32).to_le_bytes())
+                .collect();
             put_elem(&mut body, MI_INT32, &ir);
             put_elem(&mut body, MI_INT32, &jc);
             if *logical {
@@ -670,7 +691,10 @@ mod tests {
                     values: vec![MatValue::scalar(1.0), MatValue::text("hi")],
                 },
             ),
-            ("nd".into(), num(&[2, 2, 2], &[1., 2., 3., 4., 5., 6., 7., 8.])),
+            (
+                "nd".into(),
+                num(&[2, 2, 2], &[1., 2., 3., 4., 5., 6., 7., 8.]),
+            ),
             (
                 "sp".into(),
                 MatValue::Sparse {

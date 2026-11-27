@@ -235,7 +235,8 @@ pub struct MatFile {
 
 /// Reads a MAT-file of any level.
 pub fn read(bytes: &[u8]) -> Result<MatFile> {
-    if bytes.starts_with(b"\x89HDF\r\n\x1a\n") || bytes.get(512..520) == Some(b"\x89HDF\r\n\x1a\n") {
+    if bytes.starts_with(b"\x89HDF\r\n\x1a\n") || bytes.get(512..520) == Some(b"\x89HDF\r\n\x1a\n")
+    {
         return read_v73(bytes);
     }
     if bytes.len() >= 128 && matches!(bytes.get(126..128), Some(b"IM") | Some(b"MI")) {

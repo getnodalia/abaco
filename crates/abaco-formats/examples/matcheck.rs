@@ -98,7 +98,7 @@ fn main() {
                 (MatVersion::V4, "v4", 7usize),
                 (MatVersion::V6, "v6", 9),
                 (MatVersion::V7, "v7", 9),
-                (MatVersion::V73, "v73", 9),
+                (MatVersion::V73, "v73", 12),
             ] {
                 let vars: Vec<_> = sample().into_iter().take(keep).collect();
                 let vars: Vec<_> = if v == MatVersion::V4 {
