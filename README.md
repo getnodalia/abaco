@@ -137,7 +137,7 @@ error: cannot add m and s (length and time)
 |---|---|
 | Engines (units, expressions, documents, numerics, Script, Blocks) | Working, tested against analytic or published values and fuzzed for panics |
 | Desktop app | Working; run on Linux only so far; no undo in the document or the block editor |
-| App icon | Done: portrait of John Napier |
+| App icon | Done: portrait of Carl Friedrich Gauss |
 | Nodalia interface | Done: Nodalia theme and icons, rounded islands, main menu, Nodalia window controls on Linux |
 | Global menu | Done on Linux (D-Bus), in the top bar of the shell |
 | Installable packages | Linux, macOS (DMG) and Windows, built by CI for every release |
@@ -146,7 +146,7 @@ error: cannot add m and s (length and time)
 ## App icon
 
 Nodalia app icons are black-and-white portraits of historical figures over the app colour.
-Ábaco's is John Napier, who invented logarithms to make calculation easier. Provenance and
+Ábaco's is Carl Friedrich Gauss, who made the calculation of orbits and errors an exact science. Provenance and
 licence are in [`ATTRIBUTION.md`](ATTRIBUTION.md).
 
 ## The Nodalia suite
