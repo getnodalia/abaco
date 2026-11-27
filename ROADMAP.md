@@ -31,7 +31,7 @@ MATLAB and Simulink coverage is being built in increments (each ends in a pull r
 1. **Language and base library** (done): Ábaco Script, its interpreter, the function library, the
    `abaco script` and `abaco repl` commands.
 2. **Scientific library**: signals and FFT, filters, control systems, optimisation, interpolation,
-   statistics, the ODE/DAE suite, symbolic basics, file I/O.
+   statistics, the ODE/DAE suite and file I/O (done); symbolic basics still open.
 3. **App** (script workspace done: command window, variable browser, script editor, 2-D and 3-D plot
    drawing, English and Spanish; undo and redo in the document and figure export still open).
 4. **Block diagrams**: a Simulink-style modeller with its own solvers (engine, `abaco sim` and the
@@ -45,7 +45,7 @@ differentiation and simplification.
 * Ábaco Script is two-dimensional (no N-d arrays or struct arrays), has no integer types (`int32` and the
   like only round and saturate; values are stored as doubles), and does not know units yet; complex
   eigenvalue problems and complex least squares are not supported; `svd` returns the economy-size
-  factors; there are no multi-row character arrays and no file functions yet. See `docs/script.md`.
+  factors; there are no multi-row character arrays and no `fopen`-style file handles. See `docs/script.md`.
 * `h` is the hour; Planck's constant is `h_planck`; `e` is Euler's number; variables shadow units.
 * `1e` lexes as `1*e`; implicit multiplication binds tighter than `/` (`12/2x` is `12/(2x)`).
 * Display precision defaults to 6 significant digits and affects display only.

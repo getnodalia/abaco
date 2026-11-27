@@ -555,6 +555,77 @@ fn f_xor(_: &mut Interp, args: &[Value], _: usize) -> Out {
     bool_arr(zip(&a, &b, |&x, &y| (x != 0.0) != (y != 0.0))?)
 }
 
+/// The `[rows cols]` of `sub2ind`/`ind2sub`.
+fn size_pair(args: &[Value], name: &str) -> Result<(usize, usize)> {
+    let d = real_arg(args, 0, name)?;
+    let [r, c] = d.d.as_slice() else {
+        return err(
+            "Abaco:size",
+            format!(
+                "`{name}`: the size must be [rows cols]; only two-dimensional arrays are supported"
+            ),
+        );
+    };
+    let whole = |x: f64| x.is_finite() && x >= 0.0 && x.fract() == 0.0 && x <= 1e9;
+    if !whole(*r) || !whole(*c) {
+        return err(
+            "Abaco:size",
+            format!("`{name}`: the size must be two non-negative whole numbers"),
+        );
+    }
+    Ok((*r as usize, *c as usize))
+}
+
+fn f_sub2ind(_: &mut Interp, args: &[Value], _: usize) -> Out {
+    arity(args, 3, 3, "sub2ind")?;
+    let (r, c) = size_pair(args, "sub2ind")?;
+    let rows = real_arg(args, 1, "sub2ind")?;
+    let cols = real_arg(args, 2, "sub2ind")?;
+    if (rows.r, rows.c) != (cols.r, cols.c) {
+        return err(
+            "Abaco:size",
+            "`sub2ind`: the row and column subscripts must have the same size",
+        );
+    }
+    let mut out = Vec::with_capacity(rows.d.len());
+    for (&i, &j) in rows.d.iter().zip(&cols.d) {
+        let ok = |x: f64, n: usize| x.is_finite() && x.fract() == 0.0 && x >= 1.0 && x <= n as f64;
+        if !ok(i, r) || !ok(j, c) {
+            return err(
+                "Abaco:index",
+                format!("`sub2ind`: the subscript ({i}, {j}) is outside the {r}-by-{c} array"),
+            );
+        }
+        out.push((j - 1.0) * r as f64 + i);
+    }
+    real_out(Arr {
+        r: rows.r,
+        c: rows.c,
+        d: out,
+    })
+}
+
+fn f_ind2sub(_: &mut Interp, args: &[Value], nargout: usize) -> Out {
+    arity(args, 2, 2, "ind2sub")?;
+    let (r, c) = size_pair(args, "ind2sub")?;
+    let ind = real_arg(args, 1, "ind2sub")?;
+    let total = r as f64 * c as f64;
+    for &k in &ind.d {
+        if !(k.is_finite() && k.fract() == 0.0 && k >= 1.0 && k <= total) {
+            return err(
+                "Abaco:index",
+                format!("`ind2sub`: the index {k} is outside the {r}-by-{c} array"),
+            );
+        }
+    }
+    if nargout < 2 {
+        return real_out(ind);
+    }
+    let rows = ind.map(|&k| ((k - 1.0) % r as f64) + 1.0);
+    let cols = ind.map(|&k| ((k - 1.0) / r as f64).floor() + 1.0);
+    Ok(vec![Value::Num(rows), Value::Num(cols)])
+}
+
 fn f_find(_: &mut Interp, args: &[Value], nargout: usize) -> Out {
     arity(args, 1, 3, "find")?;
     let a = real_arg(args, 0, "find")?;
@@ -999,6 +1070,8 @@ pub const TABLE: &[(&str, Bf)] = &[
     ("all", f_all),
     ("xor", f_xor),
     ("find", f_find),
+    ("ind2sub", f_ind2sub),
+    ("sub2ind", f_sub2ind),
     ("sort", f_sort),
     ("sortrows", f_sortrows),
     ("issorted", f_issorted),

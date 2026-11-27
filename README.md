@@ -67,12 +67,12 @@ error: cannot add m and s (length and time)
   stopped. Diagrams open and save as JSON, the same files `abaco sim` reads.
 
 What does not exist yet (see [`ROADMAP.md`](ROADMAP.md)): undo and redo in the app, exporting figures, symbolic
-computation, undo in the block editor and file I/O from scripts (`readmatrix`, `save`, `load`).
+computation, undo in the block editor and low-level file handles in scripts (`fopen`, `fgetl`, MAT files).
 Nothing here is validated for safety-critical use.
 
 ## Install
 
-No release has been published yet. A release is made by merging a version bump with its notes
+Releases are on the repository's releases page. A release is made by merging a version bump with its notes
 (`docs/release-notes/vX.Y.Z.md`): the workflows in `.github/workflows/` then build these files and
 attach them to the GitHub release, where `abaco-X.Y.Z-<os>-<arch>` names each of them.
 

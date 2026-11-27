@@ -105,6 +105,7 @@ impl ScriptEngine {
         let (replies, rx) = channel::<Reply>();
         let mut interp = Interp::with_limits(Limits {
             max_stack: STACK_BUDGET,
+            files: true,
             ..Limits::default()
         });
         let cancel = interp.cancel.clone();

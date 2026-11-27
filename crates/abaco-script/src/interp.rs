@@ -27,6 +27,10 @@ pub struct Limits {
     /// default suits a 2 MB thread in a debug build; a host that runs scripts on a thread
     /// with a bigger stack raises it to about three quarters of that stack.
     pub max_stack: usize,
+    /// Whether the script may read and write files (`readmatrix`, `writematrix`, `save`,
+    /// `load`, `fileread`). Off by default: a host that runs scripts it did not write leaves
+    /// it off, a host that runs the person's own scripts turns it on.
+    pub files: bool,
 }
 
 impl Default for Limits {
@@ -36,6 +40,7 @@ impl Default for Limits {
             max_call_depth: 256,
             max_output: 4_000_000,
             max_stack: 1_000_000,
+            files: false,
         }
     }
 }
@@ -291,6 +296,11 @@ impl Interp {
         }
         out.sort_by(|a, b| a.0.cmp(&b.0));
         out
+    }
+
+    /// `true` when the host lets scripts touch files.
+    pub fn files_allowed(&self) -> bool {
+        self.limits.files
     }
 
     /// Names of the functions defined by scripts.
